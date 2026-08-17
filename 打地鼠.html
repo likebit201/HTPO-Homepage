@@ -1,0 +1,163 @@
+﻿<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>打地鼠小游戏</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; font-family: "Microsoft YaHei", sans-serif; }
+body {
+    min-height: 100vh;
+    background: linear-gradient(135deg, #84fab0 0%, #8fd3f4 100%);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 20px;
+    padding: 20px;
+}
+.game-info {
+    display: flex;
+    gap: 40px;
+    font-size: 20px;
+    font-weight: bold;
+    color: #333;
+}
+.game-board {
+    display: grid;
+    grid-template-columns: repeat(3, 120px);
+    grid-template-rows: repeat(3, 120px);
+    gap: 16px;
+    background: #8B5A2B;
+    padding: 20px;
+    border-radius: 12px;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.2);
+}
+.hole {
+    width: 120px;
+    height: 120px;
+    background: #5a3a1a;
+    border-radius: 50%;
+    position: relative;
+    overflow: hidden;
+    cursor: pointer;
+    box-shadow: inset 0 8px 16px rgba(0,0,0,0.5);
+}
+.mole {
+    position: absolute;
+    bottom: -100%;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 80px;
+    height: 80px;
+    background: #a67c52;
+    border-radius: 50% 50% 45% 45%;
+    transition: bottom 0.15s ease-out;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 40px;
+}
+.mole.show { bottom: 10%; }
+.hole:active .mole.show { transform: translateX(-50%) scale(0.9); }
+.btn {
+    padding: 12px 36px;
+    font-size: 18px;
+    border: none;
+    border-radius: 8px;
+    background: #ff6b6b;
+    color: #fff;
+    cursor: pointer;
+    box-shadow: 0 4px 12px rgba(255,107,107,0.4);
+    transition: all 0.2s;
+}
+.btn:hover { background: #ff5252; }
+.btn:disabled { background: #ccc; cursor: not-allowed; }
+.tip { color: #555; font-size: 14px; }
+</style>
+</head>
+<body>
+    <h1>🐹 打地鼠</h1>
+    <div class="game-info">
+        <div>得分：<span id="score">0</span></div>
+        <div>时间：<span id="time">30</span>s</div>
+    </div>
+    <div class="game-board" id="board">
+        <div class="hole"><div class="mole">🐹</div></div>
+        <div class="hole"><div class="mole">🐹</div></div>
+        <div class="hole"><div class="mole">🐹</div></div>
+        <div class="hole"><div class="mole">🐹</div></div>
+        <div class="hole"><div class="mole">🐹</div></div>
+        <div class="hole"><div class="mole">🐹</div></div>
+        <div class="hole"><div class="mole">🐹</div></div>
+        <div class="hole"><div class="mole">🐹</div></div>
+        <div class="hole"><div class="mole">🐹</div></div>
+    </div>
+    <button class="btn" id="startBtn" onclick="startGame()">开始游戏</button>
+    <div class="tip">点击冒出来的地鼠得分，30秒内尽可能多打！</div>
+
+<script>
+let score = 0;
+let timeLeft = 30;
+let gameTimer = null;
+let moleTimer = null;
+const moles = document.querySelectorAll('.mole');
+const scoreEl = document.getElementById('score');
+const timeEl = document.getElementById('time');
+const startBtn = document.getElementById('startBtn');
+
+// 随机冒出一只地鼠
+function popMole() {
+    moles.forEach(m => m.classList.remove('show'));
+    const idx = Math.floor(Math.random() * 9);
+    moles[idx].classList.add('show');
+    
+    // 停留0.8~1.2秒后消失
+    const stay = 800 + Math.random() * 400;
+    moleTimer = setTimeout(() => {
+        moles[idx].classList.remove('show');
+        if(timeLeft > 0) popMole();
+    }, stay);
+}
+
+// 点击地鼠计分
+moles.forEach(mole => {
+    mole.addEventListener('click', () => {
+        if(mole.classList.contains('show')) {
+            score++;
+            scoreEl.textContent = score;
+            mole.classList.remove('show');
+        }
+    });
+});
+
+function startGame() {
+    // 重置
+    score = 0;
+    timeLeft = 30;
+    scoreEl.textContent = 0;
+    timeEl.textContent = 30;
+    startBtn.disabled = true;
+    startBtn.textContent = '游戏中...';
+    moles.forEach(m => m.classList.remove('show'));
+
+    // 倒计时
+    gameTimer = setInterval(() => {
+        timeLeft--;
+        timeEl.textContent = timeLeft;
+        if(timeLeft <= 0) {
+            clearInterval(gameTimer);
+            clearTimeout(moleTimer);
+            moles.forEach(m => m.classList.remove('show'));
+            startBtn.disabled = false;
+            startBtn.textContent = '再来一局';
+            alert(`游戏结束！你的得分：${score} 分`);
+        }
+    }, 1000);
+
+    popMole();
+}
+</script>
+</body>
+</html>
+

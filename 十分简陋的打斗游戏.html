@@ -1,0 +1,610 @@
+﻿<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>像素射击大冒险 升级版</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: #1a1a2e;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    font-family: Arial, sans-serif;
+    color: white;
+    padding-top: 8px;
+    overflow: hidden;
+    touch-action: none;
+  }
+  canvas {
+    max-width: 100%;
+    border: 2px solid #fff;
+    border-radius: 4px;
+  }
+  .hud {
+    width: 100%;
+    max-width: 800px;
+    padding: 6px 12px 10px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 14px;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+  .map-btn {
+    background: rgba(255,255,255,0.2);
+    border: 1px solid rgba(255,255,255,0.4);
+    color: white;
+    padding: 4px 10px;
+    border-radius: 4px;
+    font-size: 13px;
+    cursor: pointer;
+  }
+  .map-btn:active { background: rgba(255,255,255,0.4); }
+
+  /* 手机虚拟按键 */
+  .controls {
+    position: fixed;
+    bottom: 18px;
+    width: 100%;
+    display: flex;
+    justify-content: space-between;
+    padding: 0 16px;
+    pointer-events: none;
+  }
+  .dpad, .actions {
+    display: flex;
+    gap: 10px;
+    pointer-events: auto;
+  }
+  .control-btn {
+    width: 62px;
+    height: 62px;
+    background: rgba(255,255,255,0.2);
+    border: 2px solid rgba(255,255,255,0.4);
+    border-radius: 50%;
+    color: white;
+    font-size: 18px;
+    font-weight: bold;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    user-select: none;
+    -webkit-user-select: none;
+  }
+  .control-btn:active { background: rgba(255,255,255,0.4); }
+  .weapon-btn { font-size: 13px; }
+</style>
+</head>
+<body>
+
+<div class="hud">
+  <div>❤️ 血量: <span id="hp">100</span></div>
+  <div>🔫 武器: <span id="weapon">小刀</span></div>
+  <div>💀 击杀: <span id="score">0</span></div>
+  <button class="map-btn" id="mapBtn">🗺️ 换地图</button>
+</div>
+
+<canvas id="game" width="800" height="400"></canvas>
+
+<!-- 手机虚拟按键 -->
+<div class="controls">
+  <div class="dpad">
+    <div class="control-btn" id="btn-left">←</div>
+    <div class="control-btn" id="btn-right">→</div>
+  </div>
+  <div class="actions">
+    <div class="control-btn" id="btn-jump">跳</div>
+    <div class="control-btn" id="btn-attack">攻</div>
+    <div class="control-btn weapon-btn" id="btn-switch">切枪</div>
+  </div>
+</div>
+
+<script>
+const canvas = document.getElementById('game');
+const ctx = canvas.getContext('2d');
+
+// ========== 地图系统 ==========
+const maps = [
+  {
+    name: '草原',
+    bgColor: '#87CEEB',
+    groundColor: '#8B4513',
+    grassColor: '#228B22',
+    platforms: [
+      { x: 0, y: 380, w: 800, h: 20 },
+      { x: 120, y: 310, w: 100, h: 16 },
+      { x: 300, y: 260, w: 120, h: 16 },
+      { x: 500, y: 300, w: 110, h: 16 },
+      { x: 660, y: 230, w: 100, h: 16 },
+      { x: 200, y: 180, w: 80, h: 16 }
+    ]
+  },
+  {
+    name: '洞穴',
+    bgColor: '#2c2c54',
+    groundColor: '#474787',
+    grassColor: '#706fd3',
+    platforms: [
+      { x: 0, y: 380, w: 800, h: 20 },
+      { x: 80, y: 320, w: 90, h: 16 },
+      { x: 250, y: 280, w: 100, h: 16 },
+      { x: 420, y: 240, w: 90, h: 16 },
+      { x: 580, y: 290, w: 100, h: 16 },
+      { x: 700, y: 200, w: 80, h: 16 },
+      { x: 150, y: 170, w: 70, h: 16 }
+    ]
+  },
+  {
+    name: '雪地',
+    bgColor: '#dff9fb',
+    groundColor: '#c7ecee',
+    grassColor: '#ffffff',
+    platforms: [
+      { x: 0, y: 380, w: 800, h: 20 },
+      { x: 100, y: 300, w: 120, h: 16 },
+      { x: 280, y: 220, w: 100, h: 16 },
+      { x: 450, y: 280, w: 110, h: 16 },
+      { x: 620, y: 200, w: 100, h: 16 },
+      { x: 350, y: 150, w: 90, h: 16 }
+    ]
+  }
+];
+let currentMap = 0;
+
+// ========== 按键状态 ==========
+const keys = {
+  left: false, right: false, jump: false, attack: false
+};
+
+// ========== 玩家属性 ==========
+const player = {
+  x: 100, y: 300,
+  width: 28, height: 44,
+  vx: 0, vy: 0,
+  speed: 4, jumpPower: -12,
+  onGround: false,
+  hp: 100,
+  facing: 1,
+  attackCooldown: 0,
+  invincible: 0,
+  walkFrame: 0
+};
+
+// ========== 武器配置 ==========
+const weapons = {
+  1: { name: '小刀', damage: 25, range: 50, cooldown: 20, type: 'melee' },
+  2: { name: '手枪', damage: 15, cooldown: 15, type: 'gun', bulletSpeed: 10 },
+  3: { name: '步枪', damage: 10, cooldown: 6, type: 'gun', bulletSpeed: 14 },
+  4: { name: '霰弹枪', damage: 8, cooldown: 40, type: 'shotgun', bulletSpeed: 9, pellets: 5 }
+};
+let currentWeapon = 1;
+let score = 0;
+
+// ========== 游戏对象 ==========
+let bullets = [];
+let enemies = [];
+const gravity = 0.5;
+const maxEnemies = 6; // 场上最多敌人数量，实现无限刷新
+
+// ========== 生成敌人 ==========
+function spawnEnemy() {
+  const side = Math.random() > 0.5 ? 0 : 1;
+  enemies.push({
+    x: side === 0 ? -30 : canvas.width + 30,
+    y: 330,
+    width: 28, height: 44,
+    vx: side === 0 ? 1.2 : -1.2,
+    vy: 0,
+    hp: 30,
+    attackCooldown: 0,
+    onGround: false,
+    walkFrame: 0
+  });
+}
+
+// ========== 切换地图 ==========
+function switchMap() {
+  currentMap = (currentMap + 1) % maps.length;
+  // 重置玩家位置
+  player.x = 100;
+  player.y = 300;
+  player.vx = 0;
+  player.vy = 0;
+  // 清空场景
+  bullets = [];
+  enemies = [];
+  // 重新生成初始敌人
+  spawnEnemy();
+  spawnEnemy();
+  updateHUD();
+}
+
+// ========== 输入事件 ==========
+// 键盘
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'a' || e.key === 'ArrowLeft') keys.left = true;
+  if (e.key === 'd' || e.key === 'ArrowRight') keys.right = true;
+  if (e.key === 'w' || e.key === ' ' || e.key === 'ArrowUp') keys.jump = true;
+  if (e.key === 'j') keys.attack = true;
+  if (e.key === 'm' || e.key === 'M') switchMap();
+  if (e.key >= '1' && e.key <= '4') {
+    currentWeapon = parseInt(e.key);
+    updateHUD();
+  }
+});
+document.addEventListener('keyup', (e) => {
+  if (e.key === 'a' || e.key === 'ArrowLeft') keys.left = false;
+  if (e.key === 'd' || e.key === 'ArrowRight') keys.right = false;
+  if (e.key === 'w' || e.key === ' ' || e.key === 'ArrowUp') keys.jump = false;
+  if (e.key === 'j') keys.attack = false;
+});
+
+// 触屏按键
+function bindTouch(btn, key, isToggle = false, callback = null) {
+  btn.addEventListener('touchstart', (e) => {
+    e.preventDefault();
+    if (callback) callback();
+    else if (isToggle) switchNextWeapon();
+    else keys[key] = true;
+  });
+  btn.addEventListener('touchend', (e) => {
+    e.preventDefault();
+    if (!isToggle && !callback) keys[key] = false;
+  });
+}
+
+bindTouch(document.getElementById('btn-left'), 'left');
+bindTouch(document.getElementById('btn-right'), 'right');
+bindTouch(document.getElementById('btn-jump'), 'jump');
+bindTouch(document.getElementById('btn-attack'), 'attack');
+bindTouch(document.getElementById('btn-switch'), '', true);
+document.getElementById('mapBtn').addEventListener('click', switchMap);
+
+function switchNextWeapon() {
+  currentWeapon++;
+  if (currentWeapon > 4) currentWeapon = 1;
+  updateHUD();
+}
+
+// ========== HUD更新 ==========
+function updateHUD() {
+  document.getElementById('hp').textContent = player.hp;
+  document.getElementById('weapon').textContent = weapons[currentWeapon].name;
+  document.getElementById('score').textContent = score;
+}
+
+// ========== 碰撞检测 ==========
+function collide(a, b) {
+  return a.x < b.x + b.w && a.x + a.width > b.x &&
+         a.y < b.y + b.h && a.y + a.height > b.y;
+}
+
+// ========== 玩家攻击 ==========
+function playerAttack() {
+  const wp = weapons[currentWeapon];
+  if (player.attackCooldown > 0) return;
+  player.attackCooldown = wp.cooldown;
+
+  if (wp.type === 'melee') {
+    const meleeBox = {
+      x: player.facing === 1 ? player.x + player.width : player.x - wp.range,
+      y: player.y,
+      width: wp.range,
+      height: player.height
+    };
+    enemies.forEach(enemy => {
+      if (collide(meleeBox, {x:enemy.x, y:enemy.y, w:enemy.width, h:enemy.height})) {
+        enemy.hp -= wp.damage;
+      }
+    });
+  } else if (wp.type === 'gun') {
+    bullets.push({
+      x: player.x + player.width/2,
+      y: player.y + 18,
+      vx: wp.bulletSpeed * player.facing,
+      damage: wp.damage
+    });
+  } else if (wp.type === 'shotgun') {
+    for (let i = 0; i < wp.pellets; i++) {
+      const spread = (Math.random() - 0.5) * 0.6;
+      bullets.push({
+        x: player.x + player.width/2,
+        y: player.y + 18,
+        vx: wp.bulletSpeed * player.facing,
+        vy: spread * 3,
+        damage: wp.damage
+      });
+    }
+  }
+}
+
+// ========== 绘制精细像素玩家 ==========
+function drawPlayer() {
+  const p = player;
+  const map = maps[currentMap];
+  const isWalking = (keys.left || keys.right) && p.onGround;
+  const legOffset = isWalking ? Math.sin(p.walkFrame * 0.3) * 3 : 0;
+  
+  ctx.save();
+  if (p.facing === -1) {
+    ctx.translate(p.x + p.width, 0);
+    ctx.scale(-1, 1);
+    ctx.translate(-p.x, 0);
+  }
+
+  // 闪烁无敌效果
+  if (p.invincible > 0 && p.invincible % 10 < 5) {
+    ctx.globalAlpha = 0.5;
+  }
+
+  // 腿
+  ctx.fillStyle = '#2c3e50';
+  ctx.fillRect(p.x + 4, p.y + 30, 8, 14 + legOffset);
+  ctx.fillRect(p.x + 16, p.y + 30, 8, 14 - legOffset);
+
+  // 身体
+  ctx.fillStyle = '#3498db';
+  ctx.fillRect(p.x + 2, p.y + 14, 24, 18);
+
+  // 头
+  ctx.fillStyle = '#f5cba7';
+  ctx.fillRect(p.x + 5, p.y, 18, 16);
+
+  // 眼睛
+  ctx.fillStyle = 'white';
+  ctx.fillRect(p.x + 14, p.y + 5, 5, 5);
+  ctx.fillStyle = 'black';
+  ctx.fillRect(p.x + 16, p.y + 6, 2, 3);
+
+  // 手臂+武器
+  ctx.fillStyle = '#f5cba7';
+  const armY = p.y + 18;
+  if (p.attackCooldown > weapons[currentWeapon].cooldown * 0.6) {
+    // 攻击姿势
+    ctx.fillRect(p.x + 20, armY, 12, 5);
+    // 绘制武器
+    drawWeapon(p.x + 30, armY - 1);
+  } else {
+    // 普通姿势
+    ctx.fillRect(p.x + 22, armY, 6, 8);
+    drawWeapon(p.x + 26, armY + 1);
+  }
+
+  ctx.restore();
+}
+
+// ========== 绘制武器 ==========
+function drawWeapon(x, y) {
+  switch(currentWeapon) {
+    case 1: // 小刀
+      ctx.fillStyle = '#bdc3c7';
+      ctx.fillRect(x, y, 12, 3);
+      ctx.fillStyle = '#8b4513';
+      ctx.fillRect(x - 3, y - 1, 4, 5);
+      break;
+    case 2: // 手枪
+      ctx.fillStyle = '#2c3e50';
+      ctx.fillRect(x, y, 14, 5);
+      ctx.fillRect(x + 2, y + 4, 4, 6);
+      break;
+    case 3: // 步枪
+      ctx.fillStyle = '#2c3e50';
+      ctx.fillRect(x, y, 22, 4);
+      ctx.fillStyle = '#7f8c8d';
+      ctx.fillRect(x + 18, y - 1, 6, 2);
+      break;
+    case 4: // 霰弹枪
+      ctx.fillStyle = '#8b4513';
+      ctx.fillRect(x, y, 8, 5);
+      ctx.fillStyle = '#2c3e50';
+      ctx.fillRect(x + 6, y + 1, 14, 4);
+      break;
+  }
+}
+
+// ========== 绘制精细像素敌人 ==========
+function drawEnemy(e) {
+  const isWalking = Math.abs(e.vx) > 0;
+  const legOffset = isWalking ? Math.sin(e.walkFrame * 0.25) * 2 : 0;
+
+  ctx.save();
+  if (e.vx > 0) {
+    ctx.translate(e.x + e.width, 0);
+    ctx.scale(-1, 1);
+    ctx.translate(-e.x, 0);
+  }
+
+  // 腿
+  ctx.fillStyle = '#922b21';
+  ctx.fillRect(e.x + 4, e.y + 30, 7, 14 + legOffset);
+  ctx.fillRect(e.x + 17, e.y + 30, 7, 14 - legOffset);
+
+  // 身体
+  ctx.fillStyle = '#c0392b';
+  ctx.fillRect(e.x + 2, e.y + 12, 24, 20);
+
+  // 头
+  ctx.fillStyle = '#e74c3c';
+  ctx.fillRect(e.x + 4, e.y, 20, 14);
+
+  // 眼睛
+  ctx.fillStyle = 'white';
+  ctx.fillRect(e.x + 12, e.y + 4, 5, 5);
+  ctx.fillStyle = 'black';
+  ctx.fillRect(e.x + 14, e.y + 5, 2, 3);
+
+  // 尖牙
+  ctx.fillStyle = 'white';
+  ctx.fillRect(e.x + 9, e.y + 11, 2, 3);
+  ctx.fillRect(e.x + 17, e.y + 11, 2, 3);
+
+  ctx.restore();
+}
+
+// ========== 游戏主循环 ==========
+function gameLoop() {
+  const map = maps[currentMap];
+  
+  // 绘制背景
+  ctx.fillStyle = map.bgColor;
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  // 玩家移动逻辑
+  player.vx = 0;
+  if (keys.left) { player.vx = -player.speed; player.facing = -1; }
+  if (keys.right) { player.vx = player.speed; player.facing = 1; }
+  if (keys.jump && player.onGround) {
+    player.vy = player.jumpPower;
+    player.onGround = false;
+  }
+  if (keys.attack) playerAttack();
+
+  // 走路帧动画
+  if ((keys.left || keys.right) && player.onGround) {
+    player.walkFrame++;
+  }
+
+  // 重力与位置更新
+  player.vy += gravity;
+  player.x += player.vx;
+  player.y += player.vy;
+
+  // 平台碰撞
+  player.onGround = false;
+  map.platforms.forEach(p => {
+    if (player.x + player.width > p.x && player.x < p.x + p.w) {
+      if (player.y + player.height > p.y && player.y + player.height < p.y + p.h + 10 && player.vy >= 0) {
+        player.y = p.y - player.height;
+        player.vy = 0;
+        player.onGround = true;
+      }
+    }
+  });
+
+  // 边界限制
+  if (player.x < 0) player.x = 0;
+  if (player.x + player.width > canvas.width) player.x = canvas.width - player.width;
+
+  // 冷却计时
+  if (player.attackCooldown > 0) player.attackCooldown--;
+  if (player.invincible > 0) player.invincible--;
+
+  // 子弹更新
+  bullets.forEach((b, i) => {
+    b.x += b.vx;
+    if (b.vy) b.y += b.vy;
+    
+    // 子弹碰敌人
+    enemies.forEach((enemy) => {
+      if (b.x > enemy.x && b.x < enemy.x + enemy.width &&
+          b.y > enemy.y && b.y < enemy.y + enemy.height) {
+        enemy.hp -= b.damage;
+        bullets.splice(i, 1);
+      }
+    });
+    
+    // 子弹出界删除
+    if (b.x < 0 || b.x > canvas.width) bullets.splice(i, 1);
+  });
+
+  // 敌人AI与更新
+  enemies.forEach((enemy, index) => {
+    enemy.walkFrame++;
+    
+    // 追踪玩家（300像素内主动追击）
+    if (Math.abs(enemy.x - player.x) < 300) {
+      enemy.vx = player.x > enemy.x ? 1.8 : -1.8;
+    }
+
+    // 重力
+    enemy.vy += gravity;
+    enemy.x += enemy.vx;
+    enemy.y += enemy.vy;
+
+    // 平台碰撞
+    enemy.onGround = false;
+    map.platforms.forEach(p => {
+      if (enemy.x + enemy.width > p.x && enemy.x < p.x + p.w) {
+        if (enemy.y + enemy.height > p.y && enemy.y + enemy.height < p.y + p.h + 10 && enemy.vy >= 0) {
+          enemy.y = p.y - enemy.height;
+          enemy.vy = 0;
+          enemy.onGround = true;
+        }
+      }
+    });
+
+    // 敌人攻击
+    if (enemy.attackCooldown > 0) enemy.attackCooldown--;
+    const dist = Math.abs(enemy.x - player.x);
+    if (dist < 35 && Math.abs(enemy.y - player.y) < 45 && enemy.attackCooldown <= 0) {
+      if (player.invincible <= 0) {
+        player.hp -= 10;
+        player.invincible = 60;
+        updateHUD();
+      }
+      enemy.attackCooldown = 60;
+    }
+
+    // 敌人死亡
+    if (enemy.hp <= 0) {
+      enemies.splice(index, 1);
+      score++;
+      updateHUD();
+    }
+  });
+
+  // 无限刷新敌人：低于最大数量就持续生成
+  if (enemies.length < maxEnemies && Math.random() < 0.012) {
+    spawnEnemy();
+  }
+
+  // 绘制平台
+  map.platforms.forEach(p => {
+    ctx.fillStyle = map.groundColor;
+    ctx.fillRect(p.x, p.y, p.w, p.h);
+    ctx.fillStyle = map.grassColor;
+    ctx.fillRect(p.x, p.y, p.w, 5);
+  });
+
+  // 绘制子弹
+  ctx.fillStyle = '#f1c40f';
+  bullets.forEach(b => {
+    ctx.fillRect(b.x, b.y, 6, 3);
+  });
+
+  // 绘制敌人
+  enemies.forEach(e => drawEnemy(e));
+
+  // 绘制玩家
+  drawPlayer();
+
+  // 游戏结束
+  if (player.hp <= 0) {
+    ctx.fillStyle = 'rgba(0,0,0,0.75)';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.fillStyle = 'white';
+    ctx.font = 'bold 32px Arial';
+    ctx.textAlign = 'center';
+    ctx.fillText('游戏结束', canvas.width/2, canvas.height/2 - 10);
+    ctx.font = '18px Arial';
+    ctx.fillText('总击杀: ' + score, canvas.width/2, canvas.height/2 + 25);
+    ctx.fillText('刷新页面重新开始', canvas.width/2, canvas.height/2 + 50);
+    return;
+  }
+
+  requestAnimationFrame(gameLoop);
+}
+
+// 游戏启动
+spawnEnemy();
+spawnEnemy();
+updateHUD();
+gameLoop();
+</script>
+
+</body>
+</html>
+

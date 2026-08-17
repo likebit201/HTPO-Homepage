@@ -1,0 +1,213 @@
+﻿<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>新年星空烟花 ✨🧨</title>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{
+    overflow:hidden;
+    height:100vh;
+    background: #07071f;
+    background: radial-gradient(ellipse at center, #1a1a4a 0%, #0a0a2a 80%, #000 100%);
+  }
+  #stars{
+    position:fixed;
+    width:100%;
+    height:100%;
+    top:0;left:0;
+    pointer-events:none;
+  }
+  #canvas{
+    display:block;
+    background:transparent;
+  }
+  .bless{
+    position:fixed;
+    color:#fff;
+    font-size:22px;
+    font-weight:bold;
+    text-shadow:0 0 8px #ff0, 0 0 16px #f90;
+    user-select:none;
+    pointer-events:none;
+    white-space:nowrap;
+  }
+</style>
+</head>
+<body>
+<div id="stars"></div>
+<canvas id="canvas"></canvas>
+
+<script>
+// 彩色闪烁星星背景
+const stars = document.getElementById('stars');
+for(let i=0;i<150;i++){
+  let s = document.createElement('div');
+  let size = Math.random()*2.5 + 1;
+  let x = Math.random()*100;
+  let y = Math.random()*100;
+  let dur = Math.random()*3 + 2;
+  let color = Math.random() > 0.5 ? '#fff' : '#ffd';
+  s.style.cssText = `
+    position:absolute;
+    left:${x}%;
+    top:${y}%;
+    width:${size}px;
+    height:${size}px;
+    background:${color};
+    border-radius:50%;
+    opacity:${Math.random()*0.8+0.2};
+    animation:twinkle ${dur}s infinite alternate;
+  `;
+  stars.appendChild(s);
+}
+
+let style = document.createElement('style');
+style.textContent = `
+  @keyframes twinkle { 0%{opacity:0.2;} 100%{opacity:1;} }
+`;
+document.head.appendChild(style);
+
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
+function resize(){
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+}
+resize();
+window.addEventListener('resize',resize);
+
+const blessings = [
+  '马年大吉','万事如意','平安喜乐','财源广进','身体健康',
+  '心想事成','步步高升','阖家幸福','恭喜发财','岁岁平安'
+];
+
+// 祝福文字（很少，不卡）
+class BlessText {
+  constructor(){
+    this.text = blessings[Math.floor(Math.random()*blessings.length)];
+    this.x = Math.random() * canvas.width;
+    this.y = -30;
+    this.speedY = 1 + Math.random()*1.2;
+    this.speedX = (Math.random()-0.5)*0.6;
+    this.el = document.createElement('div');
+    this.el.className = 'bless';
+    this.el.innerText = this.text;
+    document.body.appendChild(this.el);
+  }
+  update(){
+    this.y += this.speedY;
+    this.x += this.speedX;
+    if(this.y > canvas.height + 50){
+      this.el.remove();
+      return false;
+    }
+    this.el.style.left = this.x + 'px';
+    this.el.style.top = this.y + 'px';
+    return true;
+  }
+}
+
+// 烟花粒子
+class Particle{
+  constructor(x,y,color){
+    this.x=x;this.y=y;
+    this.vx=(Math.random()-0.5)*6;
+    this.vy=(Math.random()-0.5)*6;
+    this.life=1;
+    this.color=color;
+  }
+  update(){
+    this.x += this.vx;
+    this.y += this.vy;
+    this.vy += 0.06;
+    this.life -= 0.012;
+  }
+  draw(){
+    if(this.life<=0)return;
+    ctx.globalAlpha = this.life;
+    ctx.beginPath();
+    ctx.arc(this.x,this.y,1.8,0,Math.PI*2);
+    ctx.fillStyle = this.color;
+    ctx.fill();
+  }
+}
+
+// 多彩烟花
+class Firework{
+  constructor(){
+    this.x = Math.random()*canvas.width;
+    this.y = canvas.height;
+    this.targetY = Math.random()*canvas.height*0.5 + 100;
+    this.speed = 4.5 + Math.random()*2;
+    this.done = false;
+    this.particles = [];
+  }
+  update(){
+    if(this.y>this.targetY){
+      this.y -= this.speed;
+    }else{
+      if(this.particles.length===0){
+        for(let i=0;i<2;i++) blessList.push(new BlessText());
+        const colors = [
+          `hsl(${Math.random()*360},100%,65%)`,
+          `hsl(${Math.random()*360},100%,65%)`,
+          `hsl(${Math.random()*360},100%,65%)`
+        ];
+        for(let i=0;i<100;i++){
+          let c = colors[Math.floor(Math.random()*colors.length)];
+          this.particles.push(new Particle(this.x,this.y,c));
+        }
+      }
+      this.particles.forEach(p=>p.update());
+      this.particles = this.particles.filter(p=>p.life>0);
+      if(this.particles.length===0) this.done=true;
+    }
+  }
+  draw(){
+    if(this.done)return;
+    ctx.globalAlpha=1;
+    if(this.particles.length===0){
+      ctx.beginPath();
+      ctx.arc(this.x,this.y,2.5,0,Math.PI*2);
+      ctx.fillStyle='#fff';
+      ctx.fill();
+    }else{
+      this.particles.forEach(p=>p.draw());
+    }
+  }
+}
+
+let fwList = [];
+let blessList = [];
+
+function launchThree(){
+  fwList.push(new Firework());
+  fwList.push(new Firework());
+  fwList.push(new Firework());
+}
+
+launchThree();
+setInterval(launchThree, 5000);
+
+function loop(){
+  ctx.globalAlpha=0.1;
+  ctx.fillStyle='rgba(0,0,0,0.1)';
+  ctx.fillRect(0,0,canvas.width,canvas.height);
+  ctx.globalAlpha=1;
+
+  fwList.forEach(fw=>fw.update());
+  fwList.forEach(fw=>fw.draw());
+  fwList = fwList.filter(fw=>!fw.done);
+
+  blessList = blessList.filter(b=>b.update());
+
+  requestAnimationFrame(loop);
+}
+
+loop();
+</script>
+</body>
+</html>
+

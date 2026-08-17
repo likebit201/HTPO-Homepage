@@ -1,0 +1,61 @@
+﻿<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>除夕倒计时（永久自动版）</title>
+<style>
+body{
+background: linear-gradient(135deg, #ff6b6b, #ffd93d);
+color: white;
+text-align: center;
+font-family: 微软雅黑;
+padding-top: 100px;
+}
+h1{
+font-size: 50px;
+}
+.time{
+font-size: 70px;
+font-weight: bold;
+margin-top: 40px;
+}
+</style>
+</head>
+<body>
+<h1>🧨 除夕倒计时 🧨</h1>
+<div class="time" id="time"></div>
+
+<script>
+function getNextNewYearEve() {
+    var now = new Date();
+    var year = now.getFullYear();
+    var next = new Date(year + 1, 1, 16);
+    var current = new Date(year, 1, 16);
+    if (now > current) {
+        return next;
+    } else {
+        return current;
+    }
+}
+
+function showTime() {
+    var now = new Date();
+    var end = getNextNewYearEve();
+    var diff = end - now;
+
+    var s = Math.floor(diff / 1000);
+    var h = Math.floor(s / 3600);
+    var m = Math.floor((s % 3600) / 60);
+    var sec = s % 60;
+
+    function p(x) { return x < 10 ? '0' + x : x; }
+    document.getElementById("time").innerText =
+        p(h) + " 时 " + p(m) + " 分 " + p(sec) + " 秒";
+}
+
+setInterval(showTime, 1000);
+</script>
+</body>
+</html>
+

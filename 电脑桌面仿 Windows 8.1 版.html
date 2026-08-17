@@ -1,0 +1,1056 @@
+﻿<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WebOS 8.1 桌面系统</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: "Microsoft YaHei", "Segoe UI", sans-serif;
+            user-select: none;
+        }
+
+        /* 桌面 */
+        .desktop {
+            width: 100vw;
+            height: 100vh;
+            background: linear-gradient(180deg, #1a3b7a 0%, #2d6fc9 50%, #4a90e2 100%);
+            position: relative;
+            overflow: hidden;
+        }
+
+        /* 桌面图标 */
+        .desktop-icons {
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            flex-wrap: wrap;
+            gap: 24px;
+            height: calc(100% - 48px);
+            align-content: flex-start;
+        }
+        .desk-icon {
+            width: 70px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 4px;
+            cursor: pointer;
+            padding: 6px;
+            border-radius: 3px;
+        }
+        .desk-icon:hover { background: rgba(255,255,255,0.15); }
+        .desk-icon:active { background: rgba(255,255,255,0.25); }
+        .icon-ico {
+            width: 42px;
+            height: 42px;
+            font-size: 32px;
+            text-align: center;
+            line-height: 42px;
+        }
+        .icon-txt {
+            color: #fff;
+            font-size: 12px;
+            text-align: center;
+            text-shadow: 0 1px 2px rgba(0,0,0,0.6);
+            word-break: break-all;
+        }
+
+        /* 窗口通用 */
+        .window {
+            position: absolute;
+            top: 60px;
+            left: 180px;
+            min-width: 300px;
+            min-height: 200px;
+            background: #f5f5f5;
+            display: none;
+            flex-direction: column;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+            z-index: 10;
+            border: 1px solid #ccc;
+        }
+        .window.active { display: flex; animation: winOpen .2s ease-out; }
+        .window.max { top:0!important; left:0!important; width:100%!important; height:calc(100% - 48px)!important; border-radius:0; }
+        .window.min { display: none; }
+        @keyframes winOpen {
+            from { opacity:0; transform: scale(.96); }
+            to { opacity:1; transform: scale(1); }
+        }
+        .win-title {
+            height: 32px;
+            background: #fff;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 0 0 12px;
+            cursor: move;
+            border-bottom: 1px solid #e0e0e0;
+        }
+        .win-name { font-size: 13px; color: #333; }
+        .win-btns { display: flex; height: 100%; }
+        .win-btn {
+            width: 46px;
+            height: 100%;
+            border: none;
+            background: transparent;
+            cursor: pointer;
+            font-size: 12px;
+            color: #666;
+        }
+        .win-btn:hover { background: #e5e5e5; }
+        .win-btn.close:hover { background: #e81123; color: #fff; }
+        .win-body { flex: 1; overflow: auto; background: #fff; }
+
+        /* 任务栏 */
+        .taskbar {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 48px;
+            background: rgba(20, 20, 30, 0.85);
+            backdrop-filter: blur(12px);
+            display: flex;
+            align-items: center;
+            z-index: 999;
+        }
+        .start-btn {
+            width: 48px;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            color: #fff;
+            font-size: 22px;
+        }
+        .start-btn:hover { background: rgba(255,255,255,0.1); }
+        .task-list {
+            flex: 1;
+            display: flex;
+            gap: 2px;
+            padding: 0 6px;
+            height: 100%;
+            align-items: center;
+        }
+        .task-item {
+            height: 36px;
+            padding: 0 14px;
+            background: rgba(255,255,255,0.08);
+            border-radius: 2px;
+            color: #fff;
+            font-size: 12px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            cursor: pointer;
+            border-bottom: 2px solid transparent;
+        }
+        .task-item:hover { background: rgba(255,255,255,0.15); }
+        .task-item.active { border-bottom-color: #4a90e2; background: rgba(255,255,255,0.18); }
+        .tray {
+            color: #fff;
+            font-size: 12px;
+            padding: 0 16px;
+            text-align: right;
+            border-left: 1px solid rgba(255,255,255,0.1);
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+
+        /* 开始屏幕 */
+        .start-screen {
+            position: absolute;
+            bottom: 48px;
+            left: 0;
+            width: 420px;
+            height: 520px;
+            background: rgba(15, 15, 25, 0.95);
+            backdrop-filter: blur(20px);
+            display: none;
+            z-index: 998;
+            padding: 20px;
+            color: #fff;
+        }
+        .start-screen.show { display: block; animation: startIn .2s ease-out; }
+        @keyframes startIn { from { opacity:0; transform: translateY(10px); } to { opacity:1; transform: translateY(0); } }
+        .start-title { font-size: 18px; margin-bottom: 16px; }
+        .start-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+        .start-tile {
+            aspect-ratio: 1;
+            background: #2d6fc9;
+            border-radius: 2px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            font-size: 12px;
+            gap: 6px;
+        }
+        .start-tile:hover { filter: brightness(1.1); }
+        .start-tile .ico { font-size: 24px; }
+
+        /* 右键菜单 */
+        .ctx-menu {
+            position: absolute;
+            width: 180px;
+            background: #fafafa;
+            border: 1px solid #ddd;
+            box-shadow: 0 4px 16px rgba(0,0,0,0.2);
+            display: none;
+            z-index: 1000;
+            padding: 4px 0;
+        }
+        .ctx-menu.show { display: block; }
+        .ctx-item {
+            padding: 7px 16px;
+            font-size: 13px;
+            color: #333;
+            cursor: pointer;
+        }
+        .ctx-item:hover { background: #e5f3ff; }
+        .ctx-line { height: 1px; background: #e0e0e0; margin: 4px 0; }
+
+        /* 记事本 */
+        .notepad { width: 100%; height: 100%; border: none; outline: none; resize: none; padding: 10px; font-size: 14px; }
+
+        /* 计算器 */
+        .calc-wrap { padding: 12px; }
+        .calc-screen {
+            height: 56px;
+            background: #f0f0f0;
+            text-align: right;
+            line-height: 56px;
+            padding: 0 12px;
+            font-size: 26px;
+            margin-bottom: 10px;
+            border-radius: 2px;
+        }
+        .calc-keys { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+        .calc-key {
+            height: 40px;
+            border: none;
+            background: #f0f0f0;
+            cursor: pointer;
+            font-size: 15px;
+            border-radius: 2px;
+        }
+        .calc-key:hover { background: #e0e0e0; }
+        .calc-key.op { background: #e8e8e8; }
+        .calc-key.eq { background: #2d6fc9; color: #fff; }
+        .calc-key.eq:hover { background: #1a3b7a; }
+
+        /* 终端 */
+        .cmd {
+            background: #000;
+            color: #ccc;
+            font-family: Consolas, monospace;
+            font-size: 14px;
+            padding: 10px;
+            height: 100%;
+            line-height: 1.5;
+        }
+        .cmd-input {
+            background: transparent;
+            border: none;
+            outline: none;
+            color: #ccc;
+            font-family: inherit;
+            font-size: inherit;
+            width: 80%;
+        }
+
+        /* 画图 */
+        .paint-bar {
+            height: 36px;
+            background: #f0f0f0;
+            display: flex;
+            align-items: center;
+            padding: 0 10px;
+            gap: 10px;
+            border-bottom: 1px solid #ddd;
+        }
+        .color-dot {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            cursor: pointer;
+            border: 2px solid #fff;
+            box-shadow: 0 0 0 1px #aaa;
+        }
+        #paintCanvas { width: 100%; height: calc(100% - 36px); cursor: crosshair; }
+
+        /* 文件管理器 */
+        .explorer { display: flex; height: 100%; }
+        .exp-sidebar {
+            width: 160px;
+            background: #f8f8f8;
+            border-right: 1px solid #eee;
+            padding: 10px;
+        }
+        .exp-item { padding: 6px 8px; font-size: 13px; cursor: pointer; border-radius: 2px; }
+        .exp-item:hover { background: #e5f3ff; }
+        .exp-main { flex: 1; padding: 12px; }
+        .file-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+        .file-card {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 10px;
+            border-radius: 3px;
+            cursor: pointer;
+            font-size: 12px;
+            gap: 4px;
+        }
+        .file-card:hover { background: #e5f3ff; }
+        .file-ico { font-size: 32px; }
+
+        /* 浏览器 */
+        .browser-bar {
+            height: 34px;
+            background: #f0f0f0;
+            display: flex;
+            align-items: center;
+            padding: 0 8px;
+            gap: 6px;
+            border-bottom: 1px solid #ddd;
+        }
+        .addr-bar {
+            flex: 1;
+            height: 24px;
+            border: 1px solid #ccc;
+            border-radius: 2px;
+            padding: 0 8px;
+            font-size: 12px;
+            outline: none;
+        }
+        .go-btn {
+            height: 24px;
+            padding: 0 10px;
+            border: none;
+            background: #2d6fc9;
+            color: #fff;
+            border-radius: 2px;
+            cursor: pointer;
+            font-size: 12px;
+        }
+        #browserFrame { width: 100%; height: calc(100% - 34px); border: none; }
+
+        /* 网络工具 */
+        .net-panel { padding: 16px; }
+        .net-row { display: flex; gap: 8px; margin-bottom: 12px; }
+        .net-input {
+            flex: 1;
+            height: 32px;
+            border: 1px solid #ccc;
+            border-radius: 2px;
+            padding: 0 8px;
+            outline: none;
+        }
+        .net-btn {
+            padding: 0 14px;
+            border: none;
+            background: #2d6fc9;
+            color: #fff;
+            border-radius: 2px;
+            cursor: pointer;
+        }
+        .net-result {
+            background: #f5f5f5;
+            padding: 10px;
+            border-radius: 2px;
+            font-family: Consolas, monospace;
+            font-size: 12px;
+            min-height: 100px;
+            white-space: pre-wrap;
+            line-height: 1.6;
+        }
+
+        /* 控制面板 */
+        .setting-wrap { padding: 16px; }
+        .set-group { margin-bottom: 20px; }
+        .set-title { font-size: 14px; font-weight: bold; margin-bottom: 10px; color: #333; }
+        .wall-list { display: flex; gap: 10px; }
+        .wall-item {
+            width: 80px;
+            height: 50px;
+            border-radius: 3px;
+            cursor: pointer;
+            border: 2px solid transparent;
+        }
+        .wall-item.active { border-color: #2d6fc9; }
+    </style>
+</head>
+<body>
+<div class="desktop" id="desktop">
+    <!-- 桌面图标 -->
+    <div class="desktop-icons">
+        <div class="desk-icon" ondblclick="openWin('win-exp')">
+            <div class="icon-ico">📁</div>
+            <div class="icon-txt">这台电脑</div>
+        </div>
+        <div class="desk-icon" ondblclick="openWin('win-note')">
+            <div class="icon-ico">📝</div>
+            <div class="icon-txt">记事本</div>
+        </div>
+        <div class="desk-icon" ondblclick="openWin('win-calc')">
+            <div class="icon-ico">🧮</div>
+            <div class="icon-txt">计算器</div>
+        </div>
+        <div class="desk-icon" ondblclick="openWin('win-paint')">
+            <div class="icon-ico">🎨</div>
+            <div class="icon-txt">画图</div>
+        </div>
+        <div class="desk-icon" ondblclick="openWin('win-cmd')">
+            <div class="icon-ico">⬛</div>
+            <div class="icon-txt">命令提示符</div>
+        </div>
+        <div class="desk-icon" ondblclick="openWin('win-ie')">
+            <div class="icon-ico">🌐</div>
+            <div class="icon-txt">IE浏览器</div>
+        </div>
+        <div class="desk-icon" ondblclick="openWin('win-net')">
+            <div class="icon-ico">🔌</div>
+            <div class="icon-txt">网络诊断</div>
+        </div>
+        <div class="desk-icon" ondblclick="openWin('win-set')">
+            <div class="icon-ico">⚙️</div>
+            <div class="icon-txt">控制面板</div>
+        </div>
+    </div>
+
+    <!-- 文件管理器 -->
+    <div class="window" id="win-exp" style="width:680px;height:420px;">
+        <div class="win-title" onmousedown="topWin('win-exp')">
+            <div class="win-name">📁 文件资源管理器</div>
+            <div class="win-btns">
+                <button class="win-btn" onclick="minWin('win-exp')">─</button>
+                <button class="win-btn" onclick="maxWin('win-exp')">☐</button>
+                <button class="win-btn close" onclick="closeWin('win-exp')">✕</button>
+            </div>
+        </div>
+        <div class="win-body">
+            <div class="explorer">
+                <div class="exp-sidebar">
+                    <div class="exp-item">📁 桌面</div>
+                    <div class="exp-item">📄 文档</div>
+                    <div class="exp-item">🖼️ 图片</div>
+                    <div class="exp-item">🎵 音乐</div>
+                    <div class="exp-item">💾 下载</div>
+                    <div class="exp-item">🖥️ 这台电脑</div>
+                    <div class="exp-item">🌐 网络</div>
+                </div>
+                <div class="exp-main">
+                    <div class="file-grid">
+                        <div class="file-card"><div class="file-ico">💿</div>本地磁盘 C:</div>
+                        <div class="file-card"><div class="file-ico">💿</div>本地磁盘 D:</div>
+                        <div class="file-card"><div class="file-ico">📁</div>文档</div>
+                        <div class="file-card"><div class="file-ico">📁</div>程序文件</div>
+                        <div class="file-card"><div class="file-ico">📁</div>用户</div>
+                        <div class="file-card"><div class="file-ico">🌐</div>局域网共享</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 记事本 -->
+    <div class="window" id="win-note" style="width:500px;height:360px;">
+        <div class="win-title" onmousedown="topWin('win-note')">
+            <div class="win-name">📝 无标题 - 记事本</div>
+            <div class="win-btns">
+                <button class="win-btn" onclick="minWin('win-note')">─</button>
+                <button class="win-btn" onclick="maxWin('win-note')">☐</button>
+                <button class="win-btn close" onclick="closeWin('win-note')">✕</button>
+            </div>
+        </div>
+        <div class="win-body" style="padding:0;">
+            <textarea class="notepad" placeholder="在此输入文本..."></textarea>
+        </div>
+    </div>
+
+    <!-- 计算器 -->
+    <div class="window" id="win-calc" style="width:280px;height:380px;">
+        <div class="win-title" onmousedown="topWin('win-calc')">
+            <div class="win-name">🧮 计算器</div>
+            <div class="win-btns">
+                <button class="win-btn" onclick="minWin('win-calc')">─</button>
+                <button class="win-btn" onclick="maxWin('win-calc')">☐</button>
+                <button class="win-btn close" onclick="closeWin('win-calc')">✕</button>
+            </div>
+        </div>
+        <div class="win-body">
+            <div class="calc-wrap">
+                <div class="calc-screen" id="calcScr">0</div>
+                <div class="calc-keys">
+                    <button class="calc-key" onclick="calcClr()">C</button>
+                    <button class="calc-key" onclick="calcDel()">⌫</button>
+                    <button class="calc-key op" onclick="calcIn('%')">%</button>
+                    <button class="calc-key op" onclick="calcIn('/')">÷</button>
+                    <button class="calc-key" onclick="calcIn('7')">7</button>
+                    <button class="calc-key" onclick="calcIn('8')">8</button>
+                    <button class="calc-key" onclick="calcIn('9')">9</button>
+                    <button class="calc-key op" onclick="calcIn('*')">×</button>
+                    <button class="calc-key" onclick="calcIn('4')">4</button>
+                    <button class="calc-key" onclick="calcIn('5')">5</button>
+                    <button class="calc-key" onclick="calcIn('6')">6</button>
+                    <button class="calc-key op" onclick="calcIn('-')">−</button>
+                    <button class="calc-key" onclick="calcIn('1')">1</button>
+                    <button class="calc-key" onclick="calcIn('2')">2</button>
+                    <button class="calc-key" onclick="calcIn('3')">3</button>
+                    <button class="calc-key op" onclick="calcIn('+')">+</button>
+                    <button class="calc-key" style="grid-column: span 2;" onclick="calcIn('0')">0</button>
+                    <button class="calc-key" onclick="calcIn('.')">.</button>
+                    <button class="calc-key eq" onclick="calcEq()">=</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 画图 -->
+    <div class="window" id="win-paint" style="width:560px;height:400px;">
+        <div class="win-title" onmousedown="topWin('win-paint')">
+            <div class="win-name">🎨 画图</div>
+            <div class="win-btns">
+                <button class="win-btn" onclick="minWin('win-paint')">─</button>
+                <button class="win-btn" onclick="maxWin('win-paint')">☐</button>
+                <button class="win-btn close" onclick="closeWin('win-paint')">✕</button>
+            </div>
+        </div>
+        <div class="win-body" style="padding:0; display:flex; flex-direction:column;">
+            <div class="paint-bar">
+                <div class="color-dot" style="background:#000" onclick="setColor('#000')"></div>
+                <div class="color-dot" style="background:#ff0000" onclick="setColor('#ff0000')"></div>
+                <div class="color-dot" style="background:#00aa00" onclick="setColor('#00aa00')"></div>
+                <div class="color-dot" style="background:#0066ff" onclick="setColor('#0066ff')"></div>
+                <div class="color-dot" style="background:#ffcc00" onclick="setColor('#ffcc00')"></div>
+                <button class="go-btn" style="height:24px; font-size:12px;" onclick="clearPaint()">清除</button>
+            </div>
+            <canvas id="paintCanvas"></canvas>
+        </div>
+    </div>
+
+    <!-- CMD终端 -->
+    <div class="window" id="win-cmd" style="width:580px;height:360px;">
+        <div class="win-title" onmousedown="topWin('win-cmd')">
+            <div class="win-name">⬛ 命令提示符</div>
+            <div class="win-btns">
+                <button class="win-btn" onclick="minWin('win-cmd')">─</button>
+                <button class="win-btn" onclick="maxWin('win-cmd')">☐</button>
+                <button class="win-btn close" onclick="closeWin('win-cmd')">✕</button>
+            </div>
+        </div>
+        <div class="win-body" style="padding:0;">
+            <div class="cmd" id="cmdBox">
+                <div>Microsoft Windows [版本 8.1]</div>
+                <div>(c) 2024 Microsoft Corporation。保留所有权利。</div>
+                <div>&nbsp;</div>
+                <div>C:\Users\User> <input class="cmd-input" id="cmdInput" autofocus></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 浏览器 -->
+    <div class="window" id="win-ie" style="width:720px;height:460px;">
+        <div class="win-title" onmousedown="topWin('win-ie')">
+            <div class="win-name">🌐 Internet Explorer</div>
+            <div class="win-btns">
+                <button class="win-btn" onclick="minWin('win-ie')">─</button>
+                <button class="win-btn" onclick="maxWin('win-ie')">☐</button>
+                <button class="win-btn close" onclick="closeWin('win-ie')">✕</button>
+            </div>
+        </div>
+        <div class="win-body" style="padding:0; display:flex; flex-direction:column;">
+            <div class="browser-bar">
+                <input class="addr-bar" id="addr" value="https://www.bilibili.com" placeholder="输入网址或局域网IP">
+                <button class="go-btn" onclick="goUrl()">转到</button>
+            </div>
+            <iframe id="browserFrame" src="about:blank"></iframe>
+        </div>
+    </div>
+
+    <!-- 网络诊断 -->
+    <div class="window" id="win-net" style="width:480px;height:360px;">
+        <div class="win-title" onmousedown="topWin('win-net')">
+            <div class="win-name">🔌 网络诊断工具</div>
+            <div class="win-btns">
+                <button class="win-btn" onclick="minWin('win-net')">─</button>
+                <button class="win-btn" onclick="maxWin('win-net')">☐</button>
+                <button class="win-btn close" onclick="closeWin('win-net')">✕</button>
+            </div>
+        </div>
+        <div class="win-body">
+            <div class="net-panel">
+                <div class="net-row">
+                    <input class="net-input" id="ipInput" placeholder="目标IP / 域名 例如 192.168.1.1">
+                    <button class="net-btn" onclick="doPing()">Ping</button>
+                </div>
+                <div class="net-row">
+                    <input class="net-input" id="portInput" placeholder="端口号 例如 80, 8080">
+                    <button class="net-btn" style="background:#00aa00" onclick="checkPort()">端口检测</button>
+                </div>
+                <div class="net-result" id="netRes">就绪。请输入IP地址开始诊断。</div>
+                <p style="font-size:12px; color:#888; margin-top:8px;">* 受浏览器安全限制，仅支持HTTP协议端口探测，非原生ICMP/全端口扫描</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- 控制面板 -->
+    <div class="window" id="win-set" style="width:520px;height:400px;">
+        <div class="win-title" onmousedown="topWin('win-set')">
+            <div class="win-name">⚙️ 控制面板</div>
+            <div class="win-btns">
+                <button class="win-btn" onclick="minWin('win-set')">─</button>
+                <button class="win-btn" onclick="maxWin('win-set')">☐</button>
+                <button class="win-btn close" onclick="closeWin('win-set')">✕</button>
+            </div>
+        </div>
+        <div class="win-body">
+            <div class="setting-wrap">
+                <div class="set-group">
+                    <div class="set-title">桌面背景</div>
+                    <div class="wall-list">
+                        <div class="wall-item active" style="background: linear-gradient(180deg, #1a3b7a, #4a90e2)" onclick="setWall(0)"></div>
+                        <div class="wall-item" style="background: linear-gradient(135deg, #667eea, #764ba2)" onclick="setWall(1)"></div>
+                        <div class="wall-item" style="background: linear-gradient(135deg, #11998e, #38ef7d)" onclick="setWall(2)"></div>
+                        <div class="wall-item" style="background: #222" onclick="setWall(3)"></div>
+                    </div>
+                </div>
+                <div class="set-group">
+                    <div class="set-title">系统信息</div>
+                    <p style="font-size:13px; line-height:1.8; color:#555;">
+                        系统版本：WebOS 8.1<br>
+                        处理器：当前设备CPU<br>
+                        内存：取决于浏览器分配<br>
+                        分辨率：自适应屏幕尺寸
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 开始屏幕 -->
+    <div class="start-screen" id="startScreen">
+        <div class="start-title">开始</div>
+        <div class="start-grid">
+            <div class="start-tile" onclick="openWin('win-exp'); toggleStart()">
+                <div class="ico">📁</div>
+                <div>文件管理器</div>
+            </div>
+            <div class="start-tile" onclick="openWin('win-ie'); toggleStart()">
+                <div class="ico">🌐</div>
+                <div>浏览器</div>
+            </div>
+            <div class="start-tile" onclick="openWin('win-note'); toggleStart()">
+                <div class="ico">📝</div>
+                <div>记事本</div>
+            </div>
+            <div class="start-tile" onclick="openWin('win-calc'); toggleStart()">
+                <div class="ico">🧮</div>
+                <div>计算器</div>
+            </div>
+            <div class="start-tile" onclick="openWin('win-paint'); toggleStart()">
+                <div class="ico">🎨</div>
+                <div>画图</div>
+            </div>
+            <div class="start-tile" onclick="openWin('win-cmd'); toggleStart()">
+                <div class="ico">⬛</div>
+                <div>命令提示符</div>
+            </div>
+            <div class="start-tile" onclick="openWin('win-net'); toggleStart()">
+                <div class="ico">🔌</div>
+                <div>网络诊断</div>
+            </div>
+            <div class="start-tile" onclick="openWin('win-set'); toggleStart()">
+                <div class="ico">⚙️</div>
+                <div>控制面板</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 右键菜单 -->
+    <div class="ctx-menu" id="ctxMenu">
+        <div class="ctx-item" onclick="refreshDesk()">刷新</div>
+        <div class="ctx-line"></div>
+        <div class="ctx-item" onclick="openWin('win-set')">个性化</div>
+        <div class="ctx-item" onclick="openWin('win-exp')">打开文件管理器</div>
+        <div class="ctx-line"></div>
+        <div class="ctx-item" onclick="openWin('win-note')">新建文本文档</div>
+    </div>
+
+    <!-- 任务栏 -->
+    <div class="taskbar">
+        <div class="start-btn" onclick="toggleStart()">⊞</div>
+        <div class="task-list" id="taskList"></div>
+        <div class="tray">
+            <div id="clock">12:00</div>
+            <div id="date">2026/7/3</div>
+        </div>
+    </div>
+</div>
+
+<script>
+    let zIndex = 10;
+    const winData = {};
+    const walls = [
+        'linear-gradient(180deg, #1a3b7a 0%, #2d6fc9 50%, #4a90e2 100%)',
+        'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+        'linear-gradient(135deg, #11998e 0%, #38ef7d 100%)',
+        '#222'
+    ];
+
+    // 窗口核心控制
+    function openWin(id) {
+        const w = document.getElementById(id);
+        w.classList.add('active');
+        w.classList.remove('min');
+        topWin(id);
+        if(!winData[id]) {
+            winData[id] = { top:w.offsetTop, left:w.offsetLeft, w:w.offsetWidth, h:w.offsetHeight };
+            dragWin(w);
+        }
+        if(id==='win-paint') setTimeout(initPaint, 50);
+        if(id==='win-cmd') document.getElementById('cmdInput').focus();
+        document.getElementById('startScreen').classList.remove('show');
+        renderTask();
+    }
+    function closeWin(id) {
+        document.getElementById(id).classList.remove('active');
+        renderTask();
+    }
+    function minWin(id) {
+        document.getElementById(id).classList.add('min');
+        renderTask();
+    }
+    function maxWin(id) {
+        const w = document.getElementById(id);
+        if(w.classList.contains('max')) {
+            w.classList.remove('max');
+            w.style.top = winData[id].top + 'px';
+            w.style.left = winData[id].left + 'px';
+            w.style.width = winData[id].w + 'px';
+            w.style.height = winData[id].h + 'px';
+        } else {
+            winData[id] = { top:w.offsetTop, left:w.offsetLeft, w:w.offsetWidth, h:w.offsetHeight };
+            w.classList.add('max');
+        }
+        if(id==='win-paint') setTimeout(resizePaint, 100);
+    }
+    function topWin(id) {
+        zIndex++;
+        document.getElementById(id).style.zIndex = zIndex;
+        renderTask();
+    }
+
+    // 任务栏渲染
+    function renderTask() {
+        const box = document.getElementById('taskList');
+        box.innerHTML = '';
+        document.querySelectorAll('.window.active').forEach(w => {
+            const id = w.id;
+            const name = w.querySelector('.win-name').innerText;
+            const isMin = w.classList.contains('min');
+            const isTop = w.style.zIndex == zIndex && !isMin;
+            const item = document.createElement('div');
+            item.className = 'task-item' + (isTop ? ' active' : '');
+            item.innerText = name;
+            item.onclick = () => {
+                if(isMin) { w.classList.remove('min'); topWin(id); }
+                else if(isTop) minWin(id);
+                else topWin(id);
+                renderTask();
+            };
+            box.appendChild(item);
+        });
+    }
+
+    // 开始菜单
+    function toggleStart() {
+        document.getElementById('startScreen').classList.toggle('show');
+    }
+
+    // 右键菜单
+    document.getElementById('desktop').addEventListener('contextmenu', e => {
+        e.preventDefault();
+        if(e.target.closest('.window') || e.target.closest('.taskbar') || e.target.closest('.desk-icon')) return;
+        const m = document.getElementById('ctxMenu');
+        m.style.left = e.clientX + 'px';
+        m.style.top = e.clientY + 'px';
+        m.classList.add('show');
+    });
+    document.addEventListener('click', e => {
+        if(!e.target.closest('.ctx-menu')) document.getElementById('ctxMenu').classList.remove('show');
+        if(!e.target.closest('.start-btn') && !e.target.closest('.start-screen')) {
+            document.getElementById('startScreen').classList.remove('show');
+        }
+    });
+
+    function refreshDesk() {
+        document.getElementById('ctxMenu').classList.remove('show');
+        const icons = document.querySelector('.desktop-icons');
+        icons.style.opacity = .5;
+        setTimeout(() => icons.style.opacity = 1, 150);
+    }
+
+    // 窗口拖动
+    function dragWin(w) {
+        const title = w.querySelector('.win-title');
+        let x, y, l, t;
+        title.onmousedown = e => {
+            if(w.classList.contains('max')) return;
+            x = e.clientX; y = e.clientY;
+            l = w.offsetLeft; t = w.offsetTop;
+            topWin(w.id);
+            document.onmousemove = move;
+            document.onmouseup = stop;
+        };
+        function move(e) {
+            let nl = l + e.clientX - x;
+            let nt = t + e.clientY - y;
+            nt = Math.max(0, Math.min(nt, innerHeight - 80));
+            nl = Math.max(0, Math.min(nl, innerWidth - 100));
+            w.style.left = nl + 'px';
+            w.style.top = nt + 'px';
+        }
+        function stop() {
+            document.onmousemove = null;
+            document.onmouseup = null;
+        }
+    }
+
+    // 计算器
+    let calcV = '0', calcO = '', calcP = '', calcR = false;
+    function calcIn(v) {
+        const s = document.getElementById('calcScr');
+        if(calcR) { calcV='0'; calcR=false; }
+        if('+-*/%'.includes(v)) { calcP=calcV; calcO=v; calcR=true; return; }
+        if(v==='.' && calcV.includes('.')) return;
+        calcV = calcV==='0' && v!=='.' ? v : calcV+v;
+        s.innerText = calcV;
+    }
+    function calcClr() { calcV='0'; calcP=''; calcO=''; document.getElementById('calcScr').innerText='0'; }
+    function calcDel() {
+        calcV = calcV.length>1 ? calcV.slice(0,-1) : '0';
+        document.getElementById('calcScr').innerText = calcV;
+    }
+    function calcEq() {
+        if(!calcO || !calcP) return;
+        const a = parseFloat(calcP), b = parseFloat(calcV);
+        let r;
+        switch(calcO) {
+            case '+': r=a+b; break;
+            case '-': r=a-b; break;
+            case '*': r=a*b; break;
+            case '/': r=b?a/b:'错误'; break;
+            case '%': r=a%b; break;
+        }
+        calcV = String(r);
+        calcO = ''; calcP = ''; calcR = true;
+        document.getElementById('calcScr').innerText = r;
+    }
+
+    // CMD终端
+    document.getElementById('cmdInput').addEventListener('keydown', e => {
+        if(e.key !== 'Enter') return;
+        const cmd = e.target.value.trim();
+        cmdPrint(`C:\\Users\\User> ${cmd}`);
+        runCmd(cmd);
+        e.target.value = '';
+    });
+    function cmdPrint(t) {
+        const box = document.getElementById('cmdBox');
+        const line = document.createElement('div');
+        line.innerText = t;
+        box.insertBefore(line, box.lastElementChild);
+        box.scrollTop = box.scrollHeight;
+    }
+    function runCmd(cmd) {
+        const arr = cmd.split(' ');
+        const c = arr[0].toLowerCase();
+        switch(c) {
+            case 'help':
+                cmdPrint('可用命令: help, dir, cls, date, time, whoami, ping [ip], ipconfig');
+                break;
+            case 'dir':
+                cmdPrint(' 目录: C:\\Users\\User');
+                cmdPrint('');
+                cmdPrint('2024/01/01  12:00    <DIR>          桌面');
+                cmdPrint('2024/01/01  12:00    <DIR>          文档');
+                cmdPrint('2024/01/01  12:00    <DIR>          下载');
+                cmdPrint('               0 个文件              0 字节');
+                cmdPrint('               3 个目录');
+                break;
+            case 'cls':
+                document.querySelectorAll('#cmdBox > div:not(:last-child)').forEach(el => el.remove());
+                break;
+            case 'date':
+                cmdPrint('当前日期: ' + new Date().toLocaleDateString());
+                break;
+            case 'time':
+                cmdPrint('当前时间: ' + new Date().toLocaleTimeString());
+                break;
+            case 'whoami':
+                cmdPrint('User-PC\\User');
+                break;
+            case 'ipconfig':
+                cmdPrint('');
+                cmdPrint('Windows IP 配置');
+                cmdPrint('');
+                cmdPrint('以太网适配器 本地连接:');
+                cmdPrint('   连接特定的 DNS 后缀 . . . . . . . : local');
+                cmdPrint('   本地链接 IPv6 地址. . . . . . . . : fe80::xxx');
+                cmdPrint('   IPv4 地址 . . . . . . . . . . . . : 192.168.1.100');
+                cmdPrint('   子网掩码  . . . . . . . . . . . . : 255.255.255.0');
+                cmdPrint('   默认网关. . . . . . . . . . . . . : 192.168.1.1');
+                break;
+            case 'ping':
+                if(!arr[1]) { cmdPrint('用法: ping [IP地址]'); return; }
+                const ip = arr[1];
+                cmdPrint(`正在 Ping ${ip} 具有 32 字节的数据:`);
+                let i = 0;
+                const timer = setInterval(() => {
+                    i++;
+                    const t = Math.floor(Math.random()*40+5);
+                    cmdPrint(`来自 ${ip} 的回复: 字节=32 时间=${t}ms TTL=64`);
+                    if(i>=4) {
+                        clearInterval(timer);
+                        cmdPrint('');
+                        cmdPrint(`${ip} 的 Ping 统计信息:`);
+                        cmdPrint('    数据包: 已发送 = 4，已接收 = 4，丢失 = 0 (0% 丢失)，');
+                    }
+                }, 600);
+                break;
+            case '': break;
+            default:
+                cmdPrint(`'${c}' 不是内部或外部命令，也不是可运行的程序`);
+        }
+    }
+
+    // 画图
+    let paintCtx, drawing = false, paintColor = '#000';
+    function initPaint() {
+        const c = document.getElementById('paintCanvas');
+        const p = c.parentElement;
+        c.width = p.clientWidth;
+        c.height = p.clientHeight;
+        paintCtx = c.getContext('2d');
+        paintCtx.lineCap = 'round';
+        paintCtx.lineWidth = 3;
+        paintCtx.strokeStyle = paintColor;
+        c.onmousedown = e => {
+            drawing = true;
+            const r = c.getBoundingClientRect();
+            paintCtx.beginPath();
+            paintCtx.moveTo(e.clientX-r.left, e.clientY-r.top);
+        };
+        c.onmousemove = e => {
+            if(!drawing) return;
+            const r = c.getBoundingClientRect();
+            paintCtx.lineTo(e.clientX-r.left, e.clientY-r.top);
+            paintCtx.stroke();
+        };
+        c.onmouseup = c.onmouseleave = () => drawing = false;
+    }
+    function resizePaint() {
+        const c = document.getElementById('paintCanvas');
+        const p = c.parentElement;
+        const d = paintCtx.getImageData(0,0,c.width,c.height);
+        c.width = p.clientWidth;
+        c.height = p.clientHeight;
+        paintCtx.putImageData(d,0,0);
+    }
+    function setColor(c) {
+        paintColor = c;
+        if(paintCtx) paintCtx.strokeStyle = c;
+    }
+    function clearPaint() {
+        const c = document.getElementById('paintCanvas');
+        paintCtx.clearRect(0,0,c.width,c.height);
+    }
+
+    // 浏览器
+    function goUrl() {
+        let u = document.getElementById('addr').value.trim();
+        if(!/^https?:\/\//.test(u)) u = 'https://' + u;
+        document.getElementById('browserFrame').src = u;
+    }
+    document.getElementById('addr').addEventListener('keydown', e => {
+        if(e.key === 'Enter') goUrl();
+    });
+
+    // 网络工具
+    function doPing() {
+        const ip = document.getElementById('ipInput').value.trim();
+        if(!ip) return;
+        const res = document.getElementById('netRes');
+        res.textContent = `正在 Ping ${ip} ...\n`;
+        const img = new Image();
+        let done = false;
+        const start = Date.now();
+        img.onload = img.onerror = () => {
+            if(done) return;
+            done = true;
+            res.textContent += `目标 ${ip} 响应，耗时 ${Date.now()-start}ms\n`;
+            res.textContent += `* HTTP探测，非原生ICMP`;
+        };
+        img.src = `http://${ip}/favicon.ico?${Date.now()}`;
+        setTimeout(() => {
+            if(!done) { done = true; res.textContent += '请求超时，目标不可达或禁止跨域'; }
+        }, 3000);
+    }
+    function checkPort() {
+        const ip = document.getElementById('ipInput').value.trim();
+        const port = document.getElementById('portInput').value.trim();
+        if(!ip || !port) return;
+        const res = document.getElementById('netRes');
+        res.textContent = `正在检测 ${ip}:${port} ...\n`;
+        const xhr = new XMLHttpRequest();
+        let done = false;
+        const start = Date.now();
+        xhr.onreadystatechange = () => {
+            if(done) return;
+            if(xhr.readyState > 1) {
+                done = true;
+                res.textContent += `端口 ${port} 开放，响应 ${Date.now()-start}ms\n`;
+                xhr.abort();
+            }
+        };
+        xhr.onerror = () => {
+            if(done) return;
+            done = true;
+            res.textContent += `端口 ${port} 关闭 / 被防火墙拦截 / 非HTTP协议`;
+        };
+        xhr.open('GET', `http://${ip}:${port}`, true);
+        xhr.send();
+        setTimeout(() => { if(!done) { done=true; res.textContent += '连接超时'; } }, 3000);
+    }
+
+    // 壁纸切换
+    function setWall(i) {
+        document.getElementById('desktop').style.background = walls[i];
+        document.querySelectorAll('.wall-item').forEach((el, idx) => {
+            el.classList.toggle('active', idx === i);
+        });
+    }
+
+    // 时钟
+    function updateClock() {
+        const d = new Date();
+        const h = String(d.getHours()).padStart(2,'0');
+        const m = String(d.getMinutes()).padStart(2,'0');
+        document.getElementById('clock').innerText = `${h}:${m}`;
+        document.getElementById('date').innerText = `${d.getFullYear()}/${d.getMonth()+1}/${d.getDate()}`;
+    }
+    updateClock();
+    setInterval(updateClock, 1000);
+</script>
+</body>
+</html>
+

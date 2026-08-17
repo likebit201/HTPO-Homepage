@@ -1,0 +1,888 @@
+﻿<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>末日生存：2D俯视角射击</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: #0f0f1a;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    font-family: 'Arial', sans-serif;
+    color: white;
+    overflow: hidden;
+    touch-action: none;
+    user-select: none;
+  }
+  canvas {
+    background: #2d3436;
+    max-width: 100%;
+    border: 2px solid #636e72;
+    border-radius: 6px;
+  }
+  .hud {
+    width: 100%;
+    max-width: 800px;
+    padding: 8px 12px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 14px;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+  .hp-bar, .exp-bar {
+    width: 120px;
+    height: 12px;
+    background: rgba(255,255,255,0.2);
+    border-radius: 6px;
+    overflow: hidden;
+  }
+  .hp-fill { height: 100%; background: #e74c3c; width: 100%; transition: width 0.2s; }
+  .exp-fill { height: 100%; background: #f39c12; width: 0%; transition: width 0.2s; }
+
+  /* 升级面板 */
+  .upgrade-panel {
+    position: fixed;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    background: rgba(0,0,0,0.9);
+    border: 2px solid #f39c12;
+    border-radius: 10px;
+    padding: 20px;
+    display: none;
+    z-index: 100;
+    text-align: center;
+  }
+  .upgrade-panel h3 { margin-bottom: 15px; color: #f39c12; }
+  .upgrade-options { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
+  .upgrade-card {
+    width: 120px;
+    padding: 12px;
+    background: rgba(255,255,255,0.1);
+    border: 1px solid rgba(255,255,255,0.3);
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 13px;
+  }
+  .upgrade-card:hover { background: rgba(243,156,18,0.2); border-color: #f39c12; }
+  .upgrade-card h4 { margin-bottom: 6px; color: #f1c40f; }
+
+  /* 虚拟摇杆 */
+  .joystick-area {
+    position: fixed;
+    bottom: 40px;
+    width: 120px;
+    height: 120px;
+    pointer-events: auto;
+  }
+  #moveJoystick { left: 30px; }
+  #aimJoystick { right: 30px; }
+  .joystick-base {
+    width: 100%;
+    height: 100%;
+    background: rgba(255,255,255,0.15);
+    border: 2px solid rgba(255,255,255,0.3);
+    border-radius: 50%;
+    position: relative;
+  }
+  .joystick-stick {
+    width: 50px;
+    height: 50px;
+    background: rgba(255,255,255,0.4);
+    border-radius: 50%;
+    position: absolute;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    pointer-events: none;
+  }
+
+  /* 游戏结束面板 */
+  .game-over {
+    position: fixed;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    background: rgba(0,0,0,0.9);
+    padding: 30px 40px;
+    border-radius: 10px;
+    text-align: center;
+    display: none;
+    z-index: 100;
+  }
+  .game-over h2 { color: #e74c3c; margin-bottom: 10px; }
+  .game-over p { margin: 8px 0; }
+  .restart-btn {
+    margin-top: 15px;
+    padding: 8px 20px;
+    background: #27ae60;
+    border: none;
+    color: white;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 14px;
+  }
+
+  @media (min-width: 800px) {
+    .joystick-area { display: none; }
+  }
+</style>
+</head>
+<body>
+
+<div class="hud">
+  <div>
+    <div>❤️ 生命值</div>
+    <div class="hp-bar"><div class="hp-fill" id="hpFill"></div></div>
+  </div>
+  <div>
+    <div>⭐ 等级 <span id="levelText">1</span></div>
+    <div class="exp-bar"><div class="exp-fill" id="expFill"></div></div>
+  </div>
+  <div>🌊 波次: <span id="waveText">1</span></div>
+  <div>🔫 武器: <span id="weaponText">手枪</span></div>
+  <div>💀 击杀: <span id="killText">0</span></div>
+</div>
+
+<canvas id="game" width="800" height="600"></canvas>
+
+<!-- 升级面板 -->
+<div class="upgrade-panel" id="upgradePanel">
+  <h3>🎉 升级！选择一项强化</h3>
+  <div class="upgrade-options" id="upgradeOptions"></div>
+</div>
+
+<!-- 游戏结束面板 -->
+<div class="game-over" id="gameOver">
+  <h2>游戏结束</h2>
+  <p>存活波次: <span id="finalWave">0</span></p>
+  <p>总击杀数: <span id="finalKill">0</span></p>
+  <p>最终等级: <span id="finalLevel">0</span></p>
+  <button class="restart-btn" onclick="restartGame()">重新开始</button>
+</div>
+
+<!-- 虚拟摇杆 -->
+<div class="joystick-area" id="moveJoystick">
+  <div class="joystick-base">
+    <div class="joystick-stick" id="moveStick"></div>
+  </div>
+</div>
+<div class="joystick-area" id="aimJoystick">
+  <div class="joystick-base">
+    <div class="joystick-stick" id="aimStick"></div>
+  </div>
+</div>
+
+<script>
+const canvas = document.getElementById('game');
+const ctx = canvas.getContext('2d');
+
+// ========== 游戏状态 ==========
+let gameRunning = true;
+let isPaused = false;
+let kills = 0;
+let wave = 1;
+let waveEnemiesLeft = 0;
+let waveCooldown = 0;
+
+// ========== 玩家属性 ==========
+const player = {
+  x: 400, y: 300,
+  radius: 16,
+  speed: 3,
+  maxHp: 100,
+  hp: 100,
+  level: 1,
+  exp: 0,
+  expToNext: 50,
+  damageMult: 1,
+  speedMult: 1,
+  fireRateMult: 1,
+  aimAngle: 0,
+  invincible: 0
+};
+
+// ========== 武器配置 ==========
+const weapons = {
+  pistol: { name: '手枪', damage: 12, fireRate: 20, bulletSpeed: 8, spread: 0.05, magSize: 12, reloadTime: 60 },
+  smg: { name: '冲锋枪', damage: 7, fireRate: 6, bulletSpeed: 9, spread: 0.15, magSize: 30, reloadTime: 90 },
+  shotgun: { name: '霰弹枪', damage: 8, fireRate: 45, bulletSpeed: 7, spread: 0.3, pellets: 6, magSize: 6, reloadTime: 100 },
+  rifle: { name: '步枪', damage: 18, fireRate: 12, bulletSpeed: 12, spread: 0.03, magSize: 20, reloadTime: 75 },
+  sniper: { name: '狙击枪', damage: 60, fireRate: 70, bulletSpeed: 18, spread: 0, magSize: 5, reloadTime: 120 }
+};
+let currentWeapon = 'pistol';
+let ammo = weapons[currentWeapon].magSize;
+let fireCooldown = 0;
+let reloading = false;
+let reloadTimer = 0;
+
+// ========== 输入状态 ==========
+const keys = { w:false, a:false, s:false, d:false, shoot:false, reload:false };
+let mouseX = 400, mouseY = 300;
+
+// 虚拟摇杆数据
+const moveStick = { active: false, dx: 0, dy: 0 };
+const aimStick = { active: false, dx: 0, dy: 0 };
+
+// ========== 游戏对象 ==========
+let bullets = [];
+let enemies = [];
+let particles = [];
+let items = [];
+let enemyBullets = [];
+
+// ========== 敌人类型配置 ==========
+const enemyTypes = {
+  normal: { hp: 30, speed: 1.2, damage: 10, radius: 14, color: '#e74c3c', exp: 10 },
+  fast: { hp: 15, speed: 2.5, damage: 8, radius: 10, color: '#9b59b6', exp: 12 },
+  tank: { hp: 100, speed: 0.7, damage: 20, radius: 22, color: '#7f8c8d', exp: 25 },
+  ranged: { hp: 25, speed: 0.9, damage: 12, radius: 12, color: '#27ae60', exp: 18, shootCooldown: 120 }
+};
+
+// ========== 升级选项池 ==========
+const upgradePool = [
+  { name: '伤害提升', desc: '伤害+20%', effect: () => player.damageMult *= 1.2 },
+  { name: '移速提升', desc: '移动速度+15%', effect: () => player.speedMult *= 1.15 },
+  { name: '射速提升', desc: '射击速度+20%', effect: () => player.fireRateMult *= 1.2 },
+  { name: '生命上限', desc: '最大生命+30', effect: () => { player.maxHp += 30; player.hp += 30; } },
+  { name: '生命恢复', desc: '恢复50%生命', effect: () => player.hp = Math.min(player.maxHp, player.hp + player.maxHp * 0.5) },
+  { name: '弹匣扩容', desc: '弹匣容量+50%', effect: () => weapons[currentWeapon].magSize = Math.floor(weapons[currentWeapon].magSize * 1.5) }
+];
+
+// ========== 初始化波次 ==========
+function startWave() {
+  const enemyCount = 5 + wave * 3;
+  waveEnemiesLeft = enemyCount;
+  
+  for (let i = 0; i < enemyCount; i++) {
+    setTimeout(() => spawnEnemy(), i * 300);
+  }
+}
+
+function spawnEnemy() {
+  if (!gameRunning) return;
+  
+  // 波次越高，高级敌人概率越大
+  let type = 'normal';
+  const rand = Math.random();
+  if (wave >= 3 && rand < 0.2) type = 'fast';
+  if (wave >= 5 && rand < 0.15) type = 'tank';
+  if (wave >= 4 && rand > 0.8) type = 'ranged';
+  
+  const config = enemyTypes[type];
+  
+  // 从屏幕边缘生成
+  const side = Math.floor(Math.random() * 4);
+  let x, y;
+  if (side === 0) { x = Math.random() * canvas.width; y = -30; }
+  else if (side === 1) { x = canvas.width + 30; y = Math.random() * canvas.height; }
+  else if (side === 2) { x = Math.random() * canvas.width; y = canvas.height + 30; }
+  else { x = -30; y = Math.random() * canvas.height; }
+  
+  enemies.push({
+    x, y,
+    type,
+    hp: config.hp * (1 + wave * 0.1),
+    maxHp: config.hp * (1 + wave * 0.1),
+    speed: config.speed,
+    damage: config.damage,
+    radius: config.radius,
+    color: config.color,
+    exp: config.exp,
+    shootTimer: config.shootCooldown || 0,
+    hitFlash: 0
+  });
+}
+
+// ========== 输入处理 ==========
+// 键盘
+document.addEventListener('keydown', e => {
+  const key = e.key.toLowerCase();
+  if (key in keys) keys[key] = true;
+  if (key === 'r') keys.reload = true;
+});
+document.addEventListener('keyup', e => {
+  const key = e.key.toLowerCase();
+  if (key in keys) keys[key] = false;
+  if (key === 'r') keys.reload = false;
+});
+
+// 鼠标
+canvas.addEventListener('mousemove', e => {
+  const rect = canvas.getBoundingClientRect();
+  mouseX = (e.clientX - rect.left) * (canvas.width / rect.width);
+  mouseY = (e.clientY - rect.top) * (canvas.height / rect.height);
+});
+canvas.addEventListener('mousedown', () => keys.shoot = true);
+canvas.addEventListener('mouseup', () => keys.shoot = false);
+
+// 虚拟摇杆
+function setupJoystick(area, stick, data) {
+  const base = area.querySelector('.joystick-base');
+  
+  area.addEventListener('touchstart', e => {
+    e.preventDefault();
+    data.active = true;
+    updateStick(e.touches[0], base, stick, data);
+  });
+  
+  area.addEventListener('touchmove', e => {
+    e.preventDefault();
+    if (!data.active) return;
+    updateStick(e.touches[0], base, stick, data);
+  });
+  
+  area.addEventListener('touchend', e => {
+    e.preventDefault();
+    data.active = false;
+    data.dx = 0;
+    data.dy = 0;
+    stick.style.transform = 'translate(-50%, -50%)';
+  });
+}
+
+function updateStick(touch, base, stick, data) {
+  const rect = base.getBoundingClientRect();
+  const centerX = rect.left + rect.width / 2;
+  const centerY = rect.top + rect.height / 2;
+  
+  let dx = touch.clientX - centerX;
+  let dy = touch.clientY - centerY;
+  const dist = Math.sqrt(dx*dx + dy*dy);
+  const maxDist = rect.width / 2 - 10;
+  
+  if (dist > maxDist) {
+    dx = dx / dist * maxDist;
+    dy = dy / dist * maxDist;
+  }
+  
+  stick.style.transform = `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px))`;
+  data.dx = dx / maxDist;
+  data.dy = dy / maxDist;
+}
+
+setupJoystick(
+  document.getElementById('moveJoystick'),
+  document.getElementById('moveStick'),
+  moveStick
+);
+setupJoystick(
+  document.getElementById('aimJoystick'),
+  document.getElementById('aimStick'),
+  aimStick
+);
+
+// ========== 射击逻辑 ==========
+function shoot() {
+  if (fireCooldown > 0 || reloading || ammo <= 0) return;
+  
+  const wp = weapons[currentWeapon];
+  fireCooldown = Math.floor(wp.fireRate / player.fireRateMult);
+  ammo--;
+  
+  const angle = player.aimAngle;
+  const pellets = wp.pellets || 1;
+  
+  for (let i = 0; i < pellets; i++) {
+    const spread = (Math.random() - 0.5) * wp.spread * 2;
+    const finalAngle = angle + spread;
+    
+    bullets.push({
+      x: player.x + Math.cos(angle) * 20,
+      y: player.y + Math.sin(angle) * 20,
+      vx: Math.cos(finalAngle) * wp.bulletSpeed,
+      vy: Math.sin(finalAngle) * wp.bulletSpeed,
+      damage: wp.damage * player.damageMult,
+      life: 100
+    });
+  }
+  
+  // 射击火花粒子
+  for (let i = 0; i < 3; i++) {
+    particles.push({
+      x: player.x + Math.cos(angle) * 22,
+      y: player.y + Math.sin(angle) * 22,
+      vx: Math.cos(angle + (Math.random()-0.5)) * 2,
+      vy: Math.sin(angle + (Math.random()-0.5)) * 2,
+      life: 10,
+      color: '#f1c40f',
+      size: 3
+    });
+  }
+  
+  if (ammo <= 0) startReload();
+  updateHUD();
+}
+
+function startReload() {
+  if (reloading) return;
+  reloading = true;
+  reloadTimer = weapons[currentWeapon].reloadTime;
+}
+
+// ========== 升级系统 ==========
+function levelUp() {
+  player.level++;
+  player.exp -= player.expToNext;
+  player.expToNext = Math.floor(player.expToNext * 1.4);
+  isPaused = true;
+  showUpgradePanel();
+}
+
+function showUpgradePanel() {
+  const panel = document.getElementById('upgradePanel');
+  const options = document.getElementById('upgradeOptions');
+  options.innerHTML = '';
+  
+  // 随机选3个不重复的升级
+  const shuffled = [...upgradePool].sort(() => Math.random() - 0.5);
+  const selected = shuffled.slice(0, 3);
+  
+  selected.forEach(upgrade => {
+    const card = document.createElement('div');
+    card.className = 'upgrade-card';
+    card.innerHTML = `<h4>${upgrade.name}</h4><p>${upgrade.desc}</p>`;
+    card.onclick = () => {
+      upgrade.effect();
+      panel.style.display = 'none';
+      isPaused = false;
+      updateHUD();
+    };
+    options.appendChild(card);
+  });
+  
+  panel.style.display = 'block';
+}
+
+// ========== 道具掉落 ==========
+function dropItem(x, y) {
+  if (Math.random() > 0.2) return; // 20%概率掉落
+  
+  const type = Math.random() < 0.7 ? 'hp' : 'weapon';
+  items.push({
+    x, y,
+    type,
+    radius: 12,
+    life: 600
+  });
+}
+
+function pickupItem(item) {
+  if (item.type === 'hp') {
+    player.hp = Math.min(player.maxHp, player.hp + 30);
+  } else {
+    const weaponKeys = Object.keys(weapons);
+    const randomWeapon = weaponKeys[Math.floor(Math.random() * weaponKeys.length)];
+    currentWeapon = randomWeapon;
+    ammo = weapons[currentWeapon].magSize;
+    reloading = false;
+  }
+  updateHUD();
+}
+
+// ========== HUD更新 ==========
+function updateHUD() {
+  document.getElementById('hpFill').style.width = (player.hp / player.maxHp * 100) + '%';
+  document.getElementById('expFill').style.width = (player.exp / player.expToNext * 100) + '%';
+  document.getElementById('levelText').textContent = player.level;
+  document.getElementById('waveText').textContent = wave;
+  document.getElementById('weaponText').textContent = weapons[currentWeapon].name + ` (${ammo})`;
+  document.getElementById('killText').textContent = kills;
+}
+
+// ========== 游戏主循环 ==========
+function gameLoop() {
+  if (!gameRunning) return;
+  
+  if (!isPaused) {
+    update();
+  }
+  render();
+  
+  requestAnimationFrame(gameLoop);
+}
+
+function update() {
+  // 玩家移动
+  let mx = 0, my = 0;
+  if (keys.w || moveStick.dy < -0.2) my -= 1;
+  if (keys.s || moveStick.dy > 0.2) my += 1;
+  if (keys.a || moveStick.dx < -0.2) mx -= 1;
+  if (keys.d || moveStick.dx > 0.2) mx += 1;
+  
+  if (mx !== 0 || my !== 0) {
+    const len = Math.sqrt(mx*mx + my*my);
+    mx /= len;
+    my /= len;
+    player.x += mx * player.speed * player.speedMult;
+    player.y += my * player.speed * player.speedMult;
+  }
+  
+  // 边界限制
+  player.x = Math.max(player.radius, Math.min(canvas.width - player.radius, player.x));
+  player.y = Math.max(player.radius, Math.min(canvas.height - player.radius, player.y));
+  
+  // 瞄准角度
+  if (aimStick.active) {
+    player.aimAngle = Math.atan2(aimStick.dy, aimStick.dx);
+    keys.shoot = true;
+  } else {
+    player.aimAngle = Math.atan2(mouseY - player.y, mouseX - player.x);
+  }
+  
+  // 射击
+  if (keys.shoot) shoot();
+  if (keys.reload) startReload();
+  
+  // 换弹
+  if (reloading) {
+    reloadTimer--;
+    if (reloadTimer <= 0) {
+      reloading = false;
+      ammo = weapons[currentWeapon].magSize;
+      updateHUD();
+    }
+  }
+  
+  // 冷却
+  if (fireCooldown > 0) fireCooldown--;
+  if (player.invincible > 0) player.invincible--;
+  
+  // 子弹更新
+  bullets.forEach((b, i) => {
+    b.x += b.vx;
+    b.y += b.vy;
+    b.life--;
+    
+    // 碰敌人
+    enemies.forEach((e, j) => {
+      const dx = b.x - e.x;
+      const dy = b.y - e.y;
+      if (Math.sqrt(dx*dx + dy*dy) < e.radius + 3) {
+        e.hp -= b.damage;
+        e.hitFlash = 5;
+        bullets.splice(i, 1);
+        
+        // 击中粒子
+        for (let k = 0; k < 4; k++) {
+          particles.push({
+            x: b.x, y: b.y,
+            vx: (Math.random()-0.5) * 3,
+            vy: (Math.random()-0.5) * 3,
+            life: 15,
+            color: '#e74c3c',
+            size: 2
+          });
+        }
+        
+        if (e.hp <= 0) {
+          // 死亡爆炸
+          for (let k = 0; k < 10; k++) {
+            particles.push({
+              x: e.x, y: e.y,
+              vx: (Math.random()-0.5) * 5,
+              vy: (Math.random()-0.5) * 5,
+              life: 25,
+              color: e.color,
+              size: 4
+            });
+          }
+          
+          player.exp += e.exp;
+          kills++;
+          waveEnemiesLeft--;
+          dropItem(e.x, e.y);
+          enemies.splice(j, 1);
+          updateHUD();
+          
+          if (player.exp >= player.expToNext) levelUp();
+        }
+      }
+    });
+    
+    if (b.life <= 0 || b.x < 0 || b.x > canvas.width || b.y < 0 || b.y > canvas.height) {
+      bullets.splice(i, 1);
+    }
+  });
+  
+  // 敌人子弹更新
+  enemyBullets.forEach((b, i) => {
+    b.x += b.vx;
+    b.y += b.vy;
+    b.life--;
+    
+    const dx = b.x - player.x;
+    const dy = b.y - player.y;
+    if (Math.sqrt(dx*dx + dy*dy) < player.radius + 4 && player.invincible <= 0) {
+      player.hp -= b.damage;
+      player.invincible = 30;
+      enemyBullets.splice(i, 1);
+      updateHUD();
+    }
+    
+    if (b.life <= 0) enemyBullets.splice(i, 1);
+  });
+  
+  // 敌人AI
+  enemies.forEach((e, i) => {
+    if (e.hitFlash > 0) e.hitFlash--;
+    
+    const dx = player.x - e.x;
+    const dy = player.y - e.y;
+    const dist = Math.sqrt(dx*dx + dy*dy);
+    
+    if (e.type === 'ranged') {
+      // 远程怪保持距离
+      if (dist < 150) {
+        e.x -= dx / dist * e.speed;
+        e.y -= dy / dist * e.speed;
+      } else if (dist > 250) {
+        e.x += dx / dist * e.speed;
+        e.y += dy / dist * e.speed;
+      }
+      
+      // 射击
+      e.shootTimer--;
+      if (e.shootTimer <= 0 && dist < 300) {
+        e.shootTimer = enemyTypes.ranged.shootCooldown;
+        const angle = Math.atan2(dy, dx);
+        enemyBullets.push({
+          x: e.x, y: e.y,
+          vx: Math.cos(angle) * 4,
+          vy: Math.sin(angle) * 4,
+          damage: e.damage,
+          life: 150,
+          color: '#2ecc71'
+        });
+      }
+    } else {
+      // 近战怪直接追击
+      if (dist > 0) {
+        e.x += dx / dist * e.speed;
+        e.y += dy / dist * e.speed;
+      }
+      
+      // 接触伤害
+      if (dist < player.radius + e.radius && player.invincible <= 0) {
+        player.hp -= e.damage;
+        player.invincible = 45;
+        updateHUD();
+      }
+    }
+  });
+  
+  // 道具更新
+  items.forEach((item, i) => {
+    item.life--;
+    
+    const dx = player.x - item.x;
+    const dy = player.y - item.y;
+    if (Math.sqrt(dx*dx + dy*dy) < player.radius + item.radius) {
+      pickupItem(item);
+      items.splice(i, 1);
+    }
+    
+    if (item.life <= 0) items.splice(i, 1);
+  });
+  
+  // 粒子更新
+  particles.forEach((p, i) => {
+    p.x += p.vx;
+    p.y += p.vy;
+    p.vx *= 0.95;
+    p.vy *= 0.95;
+    p.life--;
+    if (p.life <= 0) particles.splice(i, 1);
+  });
+  
+  // 波次管理
+  if (waveEnemiesLeft <= 0 && enemies.length === 0) {
+    waveCooldown++;
+    if (waveCooldown > 180) { // 3秒休息
+      wave++;
+      waveCooldown = 0;
+      startWave();
+      updateHUD();
+    }
+  }
+  
+  // 游戏结束
+  if (player.hp <= 0) {
+    gameRunning = false;
+    document.getElementById('finalWave').textContent = wave;
+    document.getElementById('finalKill').textContent = kills;
+    document.getElementById('finalLevel').textContent = player.level;
+    document.getElementById('gameOver').style.display = 'block';
+  }
+}
+
+function render() {
+  // 背景网格
+  ctx.fillStyle = '#2d3436';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  
+  ctx.strokeStyle = 'rgba(255,255,255,0.05)';
+  ctx.lineWidth = 1;
+  for (let x = 0; x < canvas.width; x += 40) {
+    ctx.beginPath();
+    ctx.moveTo(x, 0);
+    ctx.lineTo(x, canvas.height);
+    ctx.stroke();
+  }
+  for (let y = 0; y < canvas.height; y += 40) {
+    ctx.beginPath();
+    ctx.moveTo(0, y);
+    ctx.lineTo(canvas.width, y);
+    ctx.stroke();
+  }
+  
+  // 道具
+  items.forEach(item => {
+    ctx.beginPath();
+    ctx.arc(item.x, item.y, item.radius, 0, Math.PI * 2);
+    ctx.fillStyle = item.type === 'hp' ? '#e74c3c' : '#3498db';
+    ctx.fill();
+    ctx.fillStyle = 'white';
+    ctx.font = 'bold 12px Arial';
+    ctx.textAlign = 'center';
+    ctx.fillText(item.type === 'hp' ? '+' : '🔫', item.x, item.y + 4);
+  });
+  
+  // 粒子
+  particles.forEach(p => {
+    ctx.globalAlpha = p.life / 25;
+    ctx.fillStyle = p.color;
+    ctx.fillRect(p.x - p.size/2, p.y - p.size/2, p.size, p.size);
+  });
+  ctx.globalAlpha = 1;
+  
+  // 敌人子弹
+  enemyBullets.forEach(b => {
+    ctx.beginPath();
+    ctx.arc(b.x, b.y, 4, 0, Math.PI * 2);
+    ctx.fillStyle = b.color;
+    ctx.fill();
+  });
+  
+  // 敌人
+  enemies.forEach(e => {
+    // 血条
+    ctx.fillStyle = 'rgba(0,0,0,0.5)';
+    ctx.fillRect(e.x - e.radius, e.y - e.radius - 8, e.radius * 2, 4);
+    ctx.fillStyle = '#e74c3c';
+    ctx.fillRect(e.x - e.radius, e.y - e.radius - 8, e.radius * 2 * (e.hp / e.maxHp), 4);
+    
+    // 身体
+    ctx.beginPath();
+    ctx.arc(e.x, e.y, e.radius, 0, Math.PI * 2);
+    ctx.fillStyle = e.hitFlash > 0 ? 'white' : e.color;
+    ctx.fill();
+    
+    // 眼睛
+    ctx.fillStyle = 'white';
+    const eyeOffset = e.radius * 0.3;
+    ctx.beginPath();
+    ctx.arc(e.x - eyeOffset, e.y - 2, 3, 0, Math.PI * 2);
+    ctx.arc(e.x + eyeOffset, e.y - 2, 3, 0, Math.PI * 2);
+    ctx.fill();
+  });
+  
+  // 玩家子弹
+  bullets.forEach(b => {
+    ctx.fillStyle = '#f1c40f';
+    ctx.fillRect(b.x - 3, b.y - 2, 6, 4);
+  });
+  
+  // 玩家
+  ctx.save();
+  ctx.translate(player.x, player.y);
+  ctx.rotate(player.aimAngle);
+  
+  // 无敌闪烁
+  if (player.invincible > 0 && player.invincible % 6 < 3) {
+    ctx.globalAlpha = 0.5;
+  }
+  
+  // 身体
+  ctx.beginPath();
+  ctx.arc(0, 0, player.radius, 0, Math.PI * 2);
+  ctx.fillStyle = '#3498db';
+  ctx.fill();
+  ctx.strokeStyle = '#2980b9';
+  ctx.lineWidth = 2;
+  ctx.stroke();
+  
+  // 枪
+  ctx.fillStyle = '#2c3e50';
+  ctx.fillRect(player.radius - 2, -3, 18, 6);
+  
+  ctx.restore();
+  
+  // 换弹提示
+  if (reloading) {
+    ctx.fillStyle = 'white';
+    ctx.font = '14px Arial';
+    ctx.textAlign = 'center';
+    ctx.fillText('换弹中...', player.x, player.y - player.radius - 15);
+  }
+  
+  // 波次提示
+  if (waveCooldown > 0 && waveEnemiesLeft <= 0) {
+    ctx.fillStyle = 'rgba(0,0,0,0.5)';
+    ctx.fillRect(0, canvas.height/2 - 30, canvas.width, 60);
+    ctx.fillStyle = 'white';
+    ctx.font = 'bold 24px Arial';
+    ctx.textAlign = 'center';
+    ctx.fillText(`第 ${wave + 1} 波即将来袭！`, canvas.width/2, canvas.height/2 + 8);
+  }
+}
+
+// 重新开始
+function restartGame() {
+  gameRunning = true;
+  isPaused = false;
+  kills = 0;
+  wave = 1;
+  waveEnemiesLeft = 0;
+  waveCooldown = 0;
+  
+  player.x = 400;
+  player.y = 300;
+  player.hp = 100;
+  player.maxHp = 100;
+  player.level = 1;
+  player.exp = 0;
+  player.expToNext = 50;
+  player.damageMult = 1;
+  player.speedMult = 1;
+  player.fireRateMult = 1;
+  player.invincible = 0;
+  
+  currentWeapon = 'pistol';
+  ammo = weapons[currentWeapon].magSize;
+  fireCooldown = 0;
+  reloading = false;
+  
+  bullets = [];
+  enemies = [];
+  particles = [];
+  items = [];
+  enemyBullets = [];
+  
+  document.getElementById('gameOver').style.display = 'none';
+  updateHUD();
+  startWave();
+  gameLoop();
+}
+
+// 游戏启动
+updateHUD();
+startWave();
+gameLoop();
+</script>
+
+</body>
+</html>
+

@@ -1,0 +1,1170 @@
+﻿<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mini Desktop OS 应用扩展版</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            user-select: none;
+            font-family: "Segoe UI", "Microsoft YaHei", sans-serif;
+        }
+
+        /* 桌面背景 */
+        .desktop {
+            width: 100vw;
+            height: 100vh;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            position: relative;
+            overflow: hidden;
+        }
+
+        /* 桌面图标区域 */
+        .desktop-icons {
+            padding: 20px;
+            display: grid;
+            grid-template-columns: repeat(2, 80px);
+            gap: 20px;
+            width: 200px;
+            position: relative;
+            z-index: 1;
+        }
+
+        .icon {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 6px;
+            cursor: pointer;
+            padding: 8px;
+            border-radius: 6px;
+            transition: background 0.2s;
+        }
+
+        .icon:hover { background: rgba(255, 255, 255, 0.2); }
+        .icon:active { background: rgba(255, 255, 255, 0.3); }
+
+        .icon-img {
+            width: 48px;
+            height: 48px;
+            background: rgba(255, 255, 255, 0.9);
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+        }
+
+        .icon-name {
+            color: white;
+            font-size: 12px;
+            text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+            text-align: center;
+        }
+
+        /* 窗口通用样式 */
+        .window {
+            position: absolute;
+            top: 60px;
+            left: 220px;
+            width: 560px;
+            height: 400px;
+            background: #f5f5f5;
+            border-radius: 8px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+            overflow: hidden;
+            display: none;
+            flex-direction: column;
+            z-index: 10;
+            transition: opacity 0.15s, transform 0.15s;
+        }
+
+        .window.active {
+            display: flex;
+            animation: windowOpen 0.2s ease-out;
+        }
+
+        .window.minimized { display: none; }
+
+        .window.maximized {
+            top: 0 !important;
+            left: 0 !important;
+            width: 100% !important;
+            height: calc(100% - 44px) !important;
+            border-radius: 0;
+        }
+
+        @keyframes windowOpen {
+            from { opacity: 0; transform: scale(0.95); }
+            to { opacity: 1; transform: scale(1); }
+        }
+
+        .window-header {
+            height: 36px;
+            background: #ffffff;
+            border-bottom: 1px solid #e0e0e0;
+            display: flex;
+            align-items: center;
+            padding: 0 12px;
+            cursor: move;
+            justify-content: space-between;
+            flex-shrink: 0;
+        }
+
+        .window-title {
+            font-size: 13px;
+            color: #333;
+            pointer-events: none;
+        }
+
+        .window-controls {
+            display: flex;
+            gap: 8px;
+        }
+
+        .win-btn {
+            width: 14px;
+            height: 14px;
+            border-radius: 50%;
+            cursor: pointer;
+            border: none;
+            transition: filter 0.2s;
+        }
+
+        .win-btn:hover { filter: brightness(0.9); }
+        .btn-close { background: #ff5f57; }
+        .btn-min { background: #ffbd2e; }
+        .btn-max { background: #28ca42; }
+
+        .window-body {
+            flex: 1;
+            overflow: hidden;
+            background: #fff;
+        }
+
+        /* 终端样式 */
+        .terminal {
+            width: 100%;
+            height: 100%;
+            background: #0d1117;
+            color: #39ff14;
+            font-family: "Consolas", "Courier New", monospace;
+            font-size: 14px;
+            padding: 12px;
+            overflow-y: auto;
+            line-height: 1.5;
+        }
+
+        .terminal-input-line {
+            display: flex;
+            align-items: center;
+        }
+
+        .terminal-prompt { color: #58a6ff; margin-right: 8px; }
+
+        .terminal-input {
+            background: transparent;
+            border: none;
+            outline: none;
+            color: #39ff14;
+            font-family: inherit;
+            font-size: inherit;
+            flex: 1;
+            caret-color: #39ff14;
+        }
+
+        /* 画图工具样式 */
+        .paint-toolbar {
+            height: 40px;
+            background: #f0f0f0;
+            border-bottom: 1px solid #e0e0e0;
+            display: flex;
+            align-items: center;
+            padding: 0 12px;
+            gap: 12px;
+        }
+
+        .paint-color {
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            cursor: pointer;
+            border: 2px solid #fff;
+            box-shadow: 0 0 0 1px #ccc;
+        }
+
+        .paint-canvas-wrap {
+            flex: 1;
+            overflow: hidden;
+            background: #fff;
+        }
+
+        #paintCanvas {
+            width: 100%;
+            height: 100%;
+            cursor: crosshair;
+        }
+
+        /* 浏览器样式 */
+        .browser-bar {
+            height: 36px;
+            background: #f0f0f0;
+            border-bottom: 1px solid #e0e0e0;
+            display: flex;
+            align-items: center;
+            padding: 0 10px;
+            gap: 8px;
+        }
+
+        .browser-address {
+            flex: 1;
+            height: 24px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            padding: 0 8px;
+            font-size: 12px;
+            outline: none;
+        }
+
+        .browser-go {
+            height: 24px;
+            padding: 0 10px;
+            border: none;
+            background: #4a90e2;
+            color: white;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+        }
+
+        .browser-iframe {
+            width: 100%;
+            height: 100%;
+            border: none;
+        }
+
+        /* 网络工具样式 */
+        .net-tool {
+            padding: 16px;
+            height: 100%;
+            overflow-y: auto;
+        }
+
+        .net-row {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 12px;
+            align-items: center;
+        }
+
+        .net-input {
+            flex: 1;
+            height: 32px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            padding: 0 8px;
+            font-size: 13px;
+            outline: none;
+        }
+
+        .net-btn {
+            height: 32px;
+            padding: 0 14px;
+            border: none;
+            background: #28ca42;
+            color: white;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 13px;
+        }
+
+        .net-result {
+            background: #f5f5f5;
+            border-radius: 4px;
+            padding: 12px;
+            font-family: Consolas, monospace;
+            font-size: 12px;
+            line-height: 1.6;
+            min-height: 120px;
+            white-space: pre-wrap;
+        }
+
+        .net-tip {
+            margin-top: 10px;
+            font-size: 12px;
+            color: #888;
+            line-height: 1.5;
+        }
+
+        /* 通用内容区 */
+        .content-normal {
+            padding: 16px;
+            font-size: 14px;
+            color: #333;
+            line-height: 1.8;
+        }
+
+        /* 右键菜单 */
+        .context-menu {
+            position: absolute;
+            width: 160px;
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 8px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+            padding: 6px 0;
+            display: none;
+            z-index: 999;
+        }
+
+        .context-menu.show { display: block; }
+
+        .context-item {
+            padding: 8px 16px;
+            font-size: 13px;
+            color: #333;
+            cursor: pointer;
+        }
+
+        .context-item:hover { background: #f0f0f0; }
+        .context-divider {
+            height: 1px;
+            background: #e5e5e5;
+            margin: 4px 0;
+        }
+
+        /* 任务栏 */
+        .taskbar {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 44px;
+            background: rgba(30, 30, 40, 0.85);
+            backdrop-filter: blur(10px);
+            display: flex;
+            align-items: center;
+            padding: 0 12px;
+            gap: 12px;
+            z-index: 100;
+        }
+
+        .start-btn {
+            width: 32px;
+            height: 32px;
+            background: #4a90e2;
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: bold;
+            cursor: pointer;
+            font-size: 18px;
+            flex-shrink: 0;
+            transition: background 0.2s;
+        }
+
+        .start-btn:hover { background: #3a80d2; }
+
+        .task-windows {
+            display: flex;
+            gap: 4px;
+            flex: 1;
+        }
+
+        .task-btn {
+            height: 32px;
+            padding: 0 12px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 4px;
+            color: white;
+            font-size: 12px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .task-btn:hover { background: rgba(255, 255, 255, 0.2); }
+        .task-btn.active { background: rgba(255, 255, 255, 0.25); }
+
+        .taskbar-right {
+            color: white;
+            font-size: 12px;
+            text-align: right;
+            flex-shrink: 0;
+            padding-left: 12px;
+        }
+
+        /* 开始菜单 */
+        .start-menu {
+            position: absolute;
+            bottom: 52px;
+            left: 12px;
+            width: 260px;
+            background: rgba(30, 30, 40, 0.95);
+            backdrop-filter: blur(15px);
+            border-radius: 10px;
+            padding: 12px;
+            display: none;
+            box-shadow: 0 8px 30px rgba(0, 0, 0, 0.4);
+            z-index: 101;
+        }
+
+        .start-menu.show {
+            display: block;
+            animation: menuOpen 0.15s ease-out;
+        }
+
+        @keyframes menuOpen {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .start-item {
+            padding: 10px 12px;
+            color: white;
+            font-size: 13px;
+            border-radius: 6px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .start-item:hover { background: rgba(255, 255, 255, 0.1); }
+    </style>
+</head>
+<body>
+    <div class="desktop" id="desktop">
+        <!-- 桌面图标 -->
+        <div class="desktop-icons">
+            <div class="icon" ondblclick="openWindow('win-file')">
+                <div class="icon-img">📁</div>
+                <div class="icon-name">我的文件</div>
+            </div>
+            <div class="icon" ondblclick="openWindow('win-terminal')">
+                <div class="icon-img">⬛</div>
+                <div class="icon-name">终端</div>
+            </div>
+            <div class="icon" ondblclick="openWindow('win-browser')">
+                <div class="icon-img">🌐</div>
+                <div class="icon-name">浏览器</div>
+            </div>
+            <div class="icon" ondblclick="openWindow('win-paint')">
+                <div class="icon-img">🎨</div>
+                <div class="icon-name">画图</div>
+            </div>
+            <div class="icon" ondblclick="openWindow('win-net')">
+                <div class="icon-img">🔌</div>
+                <div class="icon-name">网络工具</div>
+            </div>
+            <div class="icon" ondblclick="openWindow('win-game')">
+                <div class="icon-img">🎮</div>
+                <div class="icon-name">游戏中心</div>
+            </div>
+            <div class="icon" ondblclick="openWindow('win-calc')">
+                <div class="icon-img">🧮</div>
+                <div class="icon-name">计算器</div>
+            </div>
+            <div class="icon" ondblclick="openWindow('win-setting')">
+                <div class="icon-img">⚙️</div>
+                <div class="icon-name">设置</div>
+            </div>
+        </div>
+
+        <!-- 窗口：我的文件 -->
+        <div class="window" id="win-file">
+            <div class="window-header" onmousedown="bringToFront('win-file')">
+                <div class="window-title">📁 我的文件</div>
+                <div class="window-controls">
+                    <button class="win-btn btn-min" onclick="minimizeWindow('win-file')"></button>
+                    <button class="win-btn btn-max" onclick="maximizeWindow('win-file')"></button>
+                    <button class="win-btn btn-close" onclick="closeWindow('win-file')"></button>
+                </div>
+            </div>
+            <div class="window-body content-normal">
+                <p>📄 文档</p>
+                <p>🖼️ 图片</p>
+                <p>🎵 音乐</p>
+                <p>🎬 视频</p>
+                <p>💾 下载</p>
+                <p>🌐 局域网共享</p>
+            </div>
+        </div>
+
+        <!-- 窗口：终端 -->
+        <div class="window" id="win-terminal" style="width: 600px; height: 380px;">
+            <div class="window-header" onmousedown="bringToFront('win-terminal')">
+                <div class="window-title">⬛ 终端 Terminal</div>
+                <div class="window-controls">
+                    <button class="win-btn btn-min" onclick="minimizeWindow('win-terminal')"></button>
+                    <button class="win-btn btn-max" onclick="maximizeWindow('win-terminal')"></button>
+                    <button class="win-btn btn-close" onclick="closeWindow('win-terminal')"></button>
+                </div>
+            </div>
+            <div class="window-body">
+                <div class="terminal" id="terminal">
+                    <div>MiniOS Terminal v1.0</div>
+                    <div>输入 help 查看可用命令</div>
+                    <div>&nbsp;</div>
+                    <div class="terminal-input-line">
+                        <span class="terminal-prompt">user@minios:~$</span>
+                        <input type="text" class="terminal-input" id="terminalInput" autofocus>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 窗口：浏览器 -->
+        <div class="window" id="win-browser" style="width: 700px; height: 450px;">
+            <div class="window-header" onmousedown="bringToFront('win-browser')">
+                <div class="window-title">🌐 浏览器</div>
+                <div class="window-controls">
+                    <button class="win-btn btn-min" onclick="minimizeWindow('win-browser')"></button>
+                    <button class="win-btn btn-max" onclick="maximizeWindow('win-browser')"></button>
+                    <button class="win-btn btn-close" onclick="closeWindow('win-browser')"></button>
+                </div>
+            </div>
+            <div class="window-body" style="display: flex; flex-direction: column;">
+                <div class="browser-bar">
+                    <input type="text" class="browser-address" id="browserAddr" value="https://www.bilibili.com" placeholder="输入网址或局域网IP">
+                    <button class="browser-go" onclick="browserGo()">前往</button>
+                </div>
+                <iframe class="browser-iframe" id="browserFrame" src="about:blank"></iframe>
+            </div>
+        </div>
+
+        <!-- 窗口：画图 -->
+        <div class="window" id="win-paint" style="width: 600px; height: 420px;">
+            <div class="window-header" onmousedown="bringToFront('win-paint')">
+                <div class="window-title">🎨 画图</div>
+                <div class="window-controls">
+                    <button class="win-btn btn-min" onclick="minimizeWindow('win-paint')"></button>
+                    <button class="win-btn btn-max" onclick="maximizeWindow('win-paint')"></button>
+                    <button class="win-btn btn-close" onclick="closeWindow('win-paint')"></button>
+                </div>
+            </div>
+            <div class="window-body" style="display: flex; flex-direction: column;">
+                <div class="paint-toolbar">
+                    <div class="paint-color" style="background: #000;" onclick="setPaintColor('#000')"></div>
+                    <div class="paint-color" style="background: #ff0000;" onclick="setPaintColor('#ff0000')"></div>
+                    <div class="paint-color" style="background: #00aa00;" onclick="setPaintColor('#00aa00')"></div>
+                    <div class="paint-color" style="background: #0066ff;" onclick="setPaintColor('#0066ff')"></div>
+                    <div class="paint-color" style="background: #ffcc00;" onclick="setPaintColor('#ffcc00')"></div>
+                    <button class="net-btn" style="height: 26px; font-size: 12px;" onclick="clearPaint()">清屏</button>
+                </div>
+                <div class="paint-canvas-wrap">
+                    <canvas id="paintCanvas"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- 窗口：网络工具 -->
+        <div class="window" id="win-net" style="width: 500px; height: 380px;">
+            <div class="window-header" onmousedown="bringToFront('win-net')">
+                <div class="window-title">🔌 网络工具 / 局域网访问</div>
+                <div class="window-controls">
+                    <button class="win-btn btn-min" onclick="minimizeWindow('win-net')"></button>
+                    <button class="win-btn btn-max" onclick="maximizeWindow('win-net')"></button>
+                    <button class="win-btn btn-close" onclick="closeWindow('win-net')"></button>
+                </div>
+            </div>
+            <div class="window-body">
+                <div class="net-tool">
+                    <div class="net-row">
+                        <input type="text" class="net-input" id="netIp" placeholder="目标IP / 局域网地址 例: 192.168.1.1">
+                        <button class="net-btn" onclick="netPing()">Ping</button>
+                    </div>
+                    <div class="net-row">
+                        <input type="text" class="net-input" id="netPort" placeholder="端口号 例: 80, 8080, 22">
+                        <button class="net-btn" style="background: #4a90e2;" onclick="netPortCheck()">端口检测</button>
+                    </div>
+                    <div class="net-result" id="netResult">等待操作...</div>
+                    <div class="net-tip">
+                        提示：纯前端受浏览器同源策略(CORS)限制，无法进行底层ICMP Ping和全端口扫描。<br>
+                        可正常访问：局域网内开启CORS的HTTP/WebSocket服务（如路由器后台、内网网页、设备Web管理页）。<br>
+                        如需完整端口扫描、SSH、SMB访问，需搭配本地后端服务。
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 窗口：游戏中心 -->
+        <div class="window" id="win-game">
+            <div class="window-header" onmousedown="bringToFront('win-game')">
+                <div class="window-title">🎮 游戏中心</div>
+                <div class="window-controls">
+                    <button class="win-btn btn-min" onclick="minimizeWindow('win-game')"></button>
+                    <button class="win-btn btn-max" onclick="maximizeWindow('win-game')"></button>
+                    <button class="win-btn btn-close" onclick="closeWindow('win-game')"></button>
+                </div>
+            </div>
+            <div class="window-body content-normal">
+                <p>🎯 三角洲行动</p>
+                <p>⛏️ 我的世界</p>
+                <p>🎳 人类一败涂地</p>
+                <p>🔫 瓦罗兰特</p>
+                <p>🏎️ 飞驰人生</p>
+            </div>
+        </div>
+
+        <!-- 窗口：计算器 -->
+        <div class="window" id="win-calc" style="width: 320px; height: 380px;">
+            <div class="window-header" onmousedown="bringToFront('win-calc')">
+                <div class="window-title">🧮 计算器</div>
+                <div class="window-controls">
+                    <button class="win-btn btn-min" onclick="minimizeWindow('win-calc')"></button>
+                    <button class="win-btn btn-max" onclick="maximizeWindow('win-calc')"></button>
+                    <button class="win-btn btn-close" onclick="closeWindow('win-calc')"></button>
+                </div>
+            </div>
+            <div class="window-body content-normal">
+                <div class="calc-display" id="calcDisplay">0</div>
+                <div class="calc-buttons">
+                    <button class="calc-btn" onclick="calcClear()">C</button>
+                    <button class="calc-btn" onclick="calcDel()">⌫</button>
+                    <button class="calc-btn" onclick="calcInput('%')">%</button>
+                    <button class="calc-btn operator" onclick="calcInput('/')">÷</button>
+                    <button class="calc-btn" onclick="calcInput('7')">7</button>
+                    <button class="calc-btn" onclick="calcInput('8')">8</button>
+                    <button class="calc-btn" onclick="calcInput('9')">9</button>
+                    <button class="calc-btn operator" onclick="calcInput('*')">×</button>
+                    <button class="calc-btn" onclick="calcInput('4')">4</button>
+                    <button class="calc-btn" onclick="calcInput('5')">5</button>
+                    <button class="calc-btn" onclick="calcInput('6')">6</button>
+                    <button class="calc-btn operator" onclick="calcInput('-')">−</button>
+                    <button class="calc-btn" onclick="calcInput('1')">1</button>
+                    <button class="calc-btn" onclick="calcInput('2')">2</button>
+                    <button class="calc-btn" onclick="calcInput('3')">3</button>
+                    <button class="calc-btn operator" onclick="calcInput('+')">+</button>
+                    <button class="calc-btn" onclick="calcInput('0')" style="grid-column: span 2;">0</button>
+                    <button class="calc-btn" onclick="calcInput('.')">.</button>
+                    <button class="calc-btn equal" onclick="calcEqual()">=</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 窗口：设置 -->
+        <div class="window" id="win-setting">
+            <div class="window-header" onmousedown="bringToFront('win-setting')">
+                <div class="window-title">⚙️ 系统设置</div>
+                <div class="window-controls">
+                    <button class="win-btn btn-min" onclick="minimizeWindow('win-setting')"></button>
+                    <button class="win-btn btn-max" onclick="maximizeWindow('win-setting')"></button>
+                    <button class="win-btn btn-close" onclick="closeWindow('win-setting')"></button>
+                </div>
+            </div>
+            <div class="window-body content-normal">
+                <p>🖥️ 显示设置</p>
+                <p>🔊 声音设置</p>
+                <p>🌐 网络与局域网</p>
+                <p>🔋 电源管理</p>
+                <p>🔒 安全与隐私</p>
+                <p>ℹ️ 关于系统</p>
+            </div>
+        </div>
+
+        <!-- 右键菜单 -->
+        <div class="context-menu" id="contextMenu">
+            <div class="context-item" onclick="refreshDesktop()">🔄 刷新</div>
+            <div class="context-divider"></div>
+            <div class="context-item" onclick="changeWallpaper(0)">🎨 紫色渐变</div>
+            <div class="context-item" onclick="changeWallpaper(1)">🌊 海洋蓝</div>
+            <div class="context-item" onclick="changeWallpaper(2)">🌿 森林绿</div>
+            <div class="context-divider"></div>
+            <div class="context-item" onclick="openWindow('win-setting')">⚙️ 显示设置</div>
+        </div>
+
+        <!-- 开始菜单 -->
+        <div class="start-menu" id="startMenu">
+            <div class="start-item" onclick="openWindow('win-file')">📁 文件管理器</div>
+            <div class="start-item" onclick="openWindow('win-terminal')">⬛ 终端</div>
+            <div class="start-item" onclick="openWindow('win-browser')">🌐 浏览器</div>
+            <div class="start-item" onclick="openWindow('win-paint')">🎨 画图</div>
+            <div class="start-item" onclick="openWindow('win-net')">🔌 网络工具</div>
+            <div class="start-item" onclick="openWindow('win-calc')">🧮 计算器</div>
+            <div class="start-item" onclick="openWindow('win-game')">🎮 游戏中心</div>
+            <div class="start-item" onclick="openWindow('win-setting')">⚙️ 设置</div>
+            <div style="height: 1px; background: rgba(255,255,255,0.1); margin: 8px 0;"></div>
+            <div class="start-item">🚪 关机</div>
+        </div>
+
+        <!-- 任务栏 -->
+        <div class="taskbar">
+            <div class="start-btn" onclick="toggleStart()">⊞</div>
+            <div class="task-windows" id="taskWindows"></div>
+            <div class="taskbar-right">
+                <div id="time">12:00</div>
+                <div id="date">2026/7/2</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let zIndexCounter = 10;
+        const windowStates = {};
+        const wallpapers = [
+            'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+            'linear-gradient(135deg, #2193b0 0%, #6dd5ed 100%)',
+            'linear-gradient(135deg, #11998e 0%, #38ef7d 100%)'
+        ];
+
+        // ========== 窗口核心控制 ==========
+        function bringToFront(id) {
+            zIndexCounter++;
+            document.getElementById(id).style.zIndex = zIndexCounter;
+            updateTaskButtons();
+        }
+
+        function openWindow(id) {
+            const win = document.getElementById(id);
+            win.classList.add('active');
+            win.classList.remove('minimized');
+            bringToFront(id);
+            
+            if (!windowStates[id]) {
+                windowStates[id] = {
+                    dragged: false,
+                    origTop: win.offsetTop,
+                    origLeft: win.offsetLeft,
+                    origWidth: win.offsetWidth,
+                    origHeight: win.offsetHeight
+                };
+                dragElement(win);
+            }
+
+            // 应用初始化
+            if (id === 'win-paint') initPaint();
+            if (id === 'win-terminal') document.getElementById('terminalInput').focus();
+            
+            document.getElementById('startMenu').classList.remove('show');
+            updateTaskButtons();
+        }
+
+        function closeWindow(id) {
+            document.getElementById(id).classList.remove('active');
+            updateTaskButtons();
+        }
+
+        function minimizeWindow(id) {
+            document.getElementById(id).classList.add('minimized');
+            updateTaskButtons();
+        }
+
+        function maximizeWindow(id) {
+            const win = document.getElementById(id);
+            const state = windowStates[id];
+            if (win.classList.contains('maximized')) {
+                win.classList.remove('maximized');
+                win.style.top = state.origTop + 'px';
+                win.style.left = state.origLeft + 'px';
+                win.style.width = state.origWidth + 'px';
+                win.style.height = state.origHeight + 'px';
+            } else {
+                state.origTop = win.offsetTop;
+                state.origLeft = win.offsetLeft;
+                state.origWidth = win.offsetWidth;
+                state.origHeight = win.offsetHeight;
+                win.classList.add('maximized');
+            }
+            if (id === 'win-paint') setTimeout(resizePaint, 100);
+        }
+
+        function updateTaskButtons() {
+            const container = document.getElementById('taskWindows');
+            container.innerHTML = '';
+            const windows = document.querySelectorAll('.window.active');
+            windows.forEach(win => {
+                const id = win.id;
+                const title = win.querySelector('.window-title').textContent;
+                const isMinimized = win.classList.contains('minimized');
+                const isActive = win.style.zIndex == zIndexCounter && !isMinimized;
+                const btn = document.createElement('div');
+                btn.className = 'task-btn' + (isActive ? ' active' : '');
+                btn.textContent = title;
+                btn.onclick = () => {
+                    if (isMinimized) {
+                        win.classList.remove('minimized');
+                        bringToFront(id);
+                    } else if (isActive) {
+                        minimizeWindow(id);
+                    } else {
+                        bringToFront(id);
+                    }
+                    updateTaskButtons();
+                };
+                container.appendChild(btn);
+            });
+        }
+
+        function toggleStart() {
+            document.getElementById('startMenu').classList.toggle('show');
+        }
+
+        // 桌面点击事件
+        document.getElementById('desktop').addEventListener('click', function(e) {
+            if (!e.target.closest('.start-btn') && !e.target.closest('.start-menu')) {
+                document.getElementById('startMenu').classList.remove('show');
+            }
+            if (!e.target.closest('.context-menu')) {
+                document.getElementById('contextMenu').classList.remove('show');
+            }
+        });
+
+        // 右键菜单
+        document.getElementById('desktop').addEventListener('contextmenu', function(e) {
+            e.preventDefault();
+            if (e.target.closest('.window') || e.target.closest('.taskbar') || e.target.closest('.desktop-icons')) return;
+            const menu = document.getElementById('contextMenu');
+            menu.style.left = e.clientX + 'px';
+            menu.style.top = e.clientY + 'px';
+            menu.classList.add('show');
+        });
+
+        function refreshDesktop() {
+            document.getElementById('contextMenu').classList.remove('show');
+            const icons = document.querySelector('.desktop-icons');
+            icons.style.opacity = '0.5';
+            setTimeout(() => icons.style.opacity = '1', 150);
+        }
+
+        function changeWallpaper(index) {
+            document.getElementById('desktop').style.background = wallpapers[index];
+            document.getElementById('contextMenu').classList.remove('show');
+        }
+
+        // 窗口拖动
+        function dragElement(elmnt) {
+            let pos1 = 0, pos2 = 0, pos3 = 0, pos4 = 0;
+            const header = elmnt.querySelector('.window-header');
+            header.onmousedown = dragMouseDown;
+
+            function dragMouseDown(e) {
+                e = e || window.event;
+                e.preventDefault();
+                if (elmnt.classList.contains('maximized')) return;
+                pos3 = e.clientX;
+                pos4 = e.clientY;
+                document.onmouseup = closeDragElement;
+                document.onmousemove = elementDrag;
+                bringToFront(elmnt.id);
+            }
+
+            function elementDrag(e) {
+                e = e || window.event;
+                e.preventDefault();
+                pos1 = pos3 - e.clientX;
+                pos2 = pos4 - e.clientY;
+                pos3 = e.clientX;
+                pos4 = e.clientY;
+                let newTop = elmnt.offsetTop - pos2;
+                let newLeft = elmnt.offsetLeft - pos1;
+                newTop = Math.max(0, Math.min(newTop, window.innerHeight - 80));
+                newLeft = Math.max(0, Math.min(newLeft, window.innerWidth - 100));
+                elmnt.style.top = newTop + "px";
+                elmnt.style.left = newLeft + "px";
+            }
+
+            function closeDragElement() {
+                document.onmouseup = null;
+                document.onmousemove = null;
+            }
+        }
+
+        // ========== 终端功能 ==========
+        const terminalInput = document.getElementById('terminalInput');
+        terminalInput.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter') {
+                const cmd = this.value.trim();
+                terminalPrint(`user@minios:~$ ${cmd}`);
+                execCommand(cmd);
+                this.value = '';
+                terminalScrollBottom();
+            }
+        });
+
+        function terminalPrint(text) {
+            const term = document.getElementById('terminal');
+            const line = document.createElement('div');
+            line.textContent = text;
+            term.insertBefore(line, term.querySelector('.terminal-input-line'));
+        }
+
+        function terminalScrollBottom() {
+            const term = document.getElementById('terminal');
+            term.scrollTop = term.scrollHeight;
+        }
+
+        function execCommand(cmd) {
+            const args = cmd.split(' ');
+            const command = args[0].toLowerCase();
+            switch(command) {
+                case 'help':
+                    terminalPrint('可用命令: help, ls, echo, clear, date, whoami, ping [ip], connect [ip:port]');
+                    break;
+                case 'ls':
+                    terminalPrint('文档  图片  下载  游戏  局域网共享');
+                    break;
+                case 'echo':
+                    terminalPrint(args.slice(1).join(' '));
+                    break;
+                case 'clear':
+                    document.querySelectorAll('#terminal > div:not(.terminal-input-line)').forEach(el => el.remove());
+                    break;
+                case 'date':
+                    terminalPrint(new Date().toLocaleString());
+                    break;
+                case 'whoami':
+                    terminalPrint('user');
+                    break;
+                case 'ping':
+                    if (!args[1]) { terminalPrint('用法: ping [IP地址]'); return; }
+                    terminalPrint(`正在 Ping ${args[1]} ...`);
+                    setTimeout(() => {
+                        terminalPrint(`来自 ${args[1]} 的回复: 时间=${Math.floor(Math.random()*50+5)}ms TTL=64`);
+                        terminalPrint(`来自 ${args[1]} 的回复: 时间=${Math.floor(Math.random()*50+5)}ms TTL=64`);
+                        terminalPrint(`来自 ${args[1]} 的回复: 时间=${Math.floor(Math.random()*50+5)}ms TTL=64`);
+                        terminalPrint(`来自 ${args[1]} 的回复: 时间=${Math.floor(Math.random()*50+5)}ms TTL=64`);
+                        terminalPrint('* 注：前端模拟结果，非真实ICMP包');
+                        terminalScrollBottom();
+                    }, 800);
+                    break;
+                case 'connect':
+                    if (!args[1]) { terminalPrint('用法: connect [IP:端口]'); return; }
+                    terminalPrint(`正在连接 ${args[1]} ...`);
+                    setTimeout(() => {
+                        terminalPrint('连接失败：浏览器沙箱限制，无法建立原生TCP/UDP连接');
+                        terminalPrint('如需真实连接，请部署本地后端代理服务');
+                        terminalScrollBottom();
+                    }, 1000);
+                    break;
+                case '':
+                    break;
+                default:
+                    terminalPrint(`${command}: 命令未找到`);
+            }
+        }
+
+        // ========== 浏览器功能 ==========
+        function browserGo() {
+            const url = document.getElementById('browserAddr').value.trim();
+            let finalUrl = url;
+            if (!url.startsWith('http://') && !url.startsWith('https://')) {
+                finalUrl = 'https://' + url;
+            }
+            document.getElementById('browserFrame').src = finalUrl;
+            // 很多网站禁止iframe嵌套，会显示空白
+        }
+
+        document.getElementById('browserAddr').addEventListener('keydown', function(e) {
+            if (e.key === 'Enter') browserGo();
+        });
+
+        // ========== 画图功能 ==========
+        let paintCtx = null;
+        let painting = false;
+        let paintColor = '#000';
+
+        function initPaint() {
+            const canvas = document.getElementById('paintCanvas');
+            const wrap = canvas.parentElement;
+            canvas.width = wrap.clientWidth;
+            canvas.height = wrap.clientHeight;
+            paintCtx = canvas.getContext('2d');
+            paintCtx.lineCap = 'round';
+            paintCtx.lineWidth = 3;
+            paintCtx.strokeStyle = paintColor;
+
+            canvas.addEventListener('mousedown', startPaint);
+            canvas.addEventListener('mousemove', draw);
+            canvas.addEventListener('mouseup', stopPaint);
+            canvas.addEventListener('mouseleave', stopPaint);
+        }
+
+        function resizePaint() {
+            const canvas = document.getElementById('paintCanvas');
+            const wrap = canvas.parentElement;
+            const imgData = paintCtx.getImageData(0, 0, canvas.width, canvas.height);
+            canvas.width = wrap.clientWidth;
+            canvas.height = wrap.clientHeight;
+            paintCtx.putImageData(imgData, 0, 0);
+        }
+
+        function startPaint(e) {
+            painting = true;
+            const rect = e.target.getBoundingClientRect();
+            paintCtx.beginPath();
+            paintCtx.moveTo(e.clientX - rect.left, e.clientY - rect.top);
+        }
+
+        function draw(e) {
+            if (!painting) return;
+            const rect = e.target.getBoundingClientRect();
+            paintCtx.lineTo(e.clientX - rect.left, e.clientY - rect.top);
+            paintCtx.stroke();
+        }
+
+        function stopPaint() {
+            painting = false;
+        }
+
+        function setPaintColor(color) {
+            paintColor = color;
+            if (paintCtx) paintCtx.strokeStyle = color;
+        }
+
+        function clearPaint() {
+            const canvas = document.getElementById('paintCanvas');
+            paintCtx.clearRect(0, 0, canvas.width, canvas.height);
+        }
+
+        // ========== 网络工具 ==========
+        function netPing() {
+            const ip = document.getElementById('netIp').value.trim();
+            if (!ip) {
+                document.getElementById('netResult').textContent = '请输入目标IP地址';
+                return;
+            }
+            const result = document.getElementById('netResult');
+            result.textContent = `正在 Ping ${ip} ...\n`;
+            
+            // 前端无法真实Ping，用HTTP请求超时模拟
+            const start = Date.now();
+            const img = new Image();
+            let done = false;
+            img.onload = img.onerror = function() {
+                if (done) return;
+                done = true;
+                const time = Date.now() - start;
+                result.textContent += `目标 ${ip} 响应，耗时 ${time}ms (HTTP探测)\n`;
+                result.textContent += `* 非真实ICMP Ping，仅检测HTTP端口可达性`;
+            };
+            img.src = `http://${ip}/favicon.ico?${Date.now()}`;
+            setTimeout(() => {
+                if (!done) {
+                    done = true;
+                    result.textContent += `请求超时，目标不可达或禁止跨域访问\n`;
+                    result.textContent += `提示：局域网设备需开启Web服务且允许跨域`;
+                }
+            }, 3000);
+        }
+
+        function netPortCheck() {
+            const ip = document.getElementById('netIp').value.trim();
+            const port = document.getElementById('netPort').value.trim();
+            if (!ip || !port) {
+                document.getElementById('netResult').textContent = '请输入IP和端口号';
+                return;
+            }
+            const result = document.getElementById('netResult');
+            result.textContent = `正在检测 ${ip}:${port} ...\n`;
+            
+            // 前端只能检测HTTP类端口，且受CORS限制
+            const start = Date.now();
+            const xhr = new XMLHttpRequest();
+            let done = false;
+            xhr.onreadystatechange = function() {
+                if (done) return;
+                if (xhr.readyState > 1) {
+                    done = true;
+                    const time = Date.now() - start;
+                    result.textContent += `端口 ${port} 开放，响应时间 ${time}ms\n`;
+                    result.textContent += `* 仅能检测HTTP/WebSocket端口，非全端口扫描`;
+                    xhr.abort();
+                }
+            };
+            xhr.onerror = function() {
+                if (done) return;
+                done = true;
+                result.textContent += `端口 ${port} 关闭、被防火墙拦截或不支持HTTP协议\n`;
+                result.textContent += `提示：TCP/UDP原生端口扫描需后端支持`;
+            };
+            xhr.open('GET', `http://${ip}:${port}`, true);
+            xhr.send();
+            setTimeout(() => {
+                if (!done) {
+                    done = true;
+                    result.textContent += `连接超时\n`;
+                }
+            }, 3000);
+        }
+
+        // ========== 计算器 ==========
+        let calcValue = '0';
+        let calcOperator = '';
+        let calcPrevValue = '';
+        let calcReset = false;
+
+        function calcInput(val) {
+            const display = document.getElementById('calcDisplay');
+            if (calcReset) { calcValue = '0'; calcReset = false; }
+            if ('+-*/%'.includes(val)) {
+                calcPrevValue = calcValue;
+                calcOperator = val;
+                calcReset = true;
+                return;
+            }
+            if (val === '.' && calcValue.includes('.')) return;
+            if (calcValue === '0' && val !== '.') {
+                calcValue = val;
+            } else {
+                calcValue += val;
+            }
+            display.textContent = calcValue;
+        }
+
+        function calcClear() {
+            calcValue = '0';
+            calcPrevValue = '';
+            calcOperator = '';
+            document.getElementById('calcDisplay').textContent = '0';
+        }
+
+        function calcDel() {
+            calcValue = calcValue.length > 1 ? calcValue.slice(0, -1) : '0';
+            document.getElementById('calcDisplay').textContent = calcValue;
+        }
+
+        function calcEqual() {
+            if (!calcOperator || !calcPrevValue) return;
+            const prev = parseFloat(calcPrevValue);
+            const curr = parseFloat(calcValue);
+            let result;
+            switch(calcOperator) {
+                case '+': result = prev + curr; break;
+                case '-': result = prev - curr; break;
+                case '*': result = prev * curr; break;
+                case '/': result = curr !== 0 ? prev / curr : '错误'; break;
+                case '%': result = prev % curr; break;
+            }
+            calcValue = String(result);
+            calcOperator = '';
+            calcPrevValue = '';
+            calcReset = true;
+            document.getElementById('calcDisplay').textContent = result;
+        }
+
+        // ========== 时间 ==========
+        function updateTime() {
+            const now = new Date();
+            const h = String(now.getHours()).padStart(2, '0');
+            const m = String(now.getMinutes()).padStart(2, '0');
+            document.getElementById('time').textContent = `${h}:${m}`;
+            const y = now.getFullYear();
+            const mo = String(now.getMonth() + 1).padStart(2, '0');
+            const d = String(now.getDate()).padStart(2, '0');
+            document.getElementById('date').textContent = `${y}/${mo}/${d}`;
+        }
+        updateTime();
+        setInterval(updateTime, 1000);
+    </script>
+</body>
+</html>
+
