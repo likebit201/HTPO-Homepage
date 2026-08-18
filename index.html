@@ -1,0 +1,930 @@
+﻿<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>团队主页 · 作品集版</title>
+    <script src="https://cdn.tailwindcss.com">
+    </script>
+    <link href="https://cdn.jsdelivr.net/npm/font-awesome@4.7.0/css/font-awesome.min.css" rel="stylesheet" />
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        winPrimary: 'var(--win-primary)',
+                    },
+                    fontFamily: {
+                        win: ['"Segoe UI"', 'system-ui', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        /* ===== 全局变量 ===== */
+        :root {
+            --win-primary: #D90429;
+        }
+
+        /* ===== 滚动条 ===== */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgba(0, 0, 0, 0.3);
+        }
+        .dark ::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.2);
+        }
+        .dark ::-webkit-scrollbar-thumb:hover {
+            background: rgba(255, 255, 255, 0.3);
+        }
+
+        /* ===== 云母质感 ===== */
+        .mica {
+            background: rgba(255, 255, 255, 0.7);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            transition: background 0.3s ease;
+        }
+        .dark .mica {
+            background: rgba(32, 32, 32, 0.7);
+            border-color: rgba(255, 255, 255, 0.1) !important;
+        }
+
+        .mica-dark {
+            background: rgba(255, 255, 255, 0.5);
+            backdrop-filter: blur(30px);
+            -webkit-backdrop-filter: blur(30px);
+            transition: background 0.3s ease;
+        }
+        .dark .mica-dark {
+            background: rgba(28, 28, 28, 0.5);
+        }
+
+        /* ===== 遮罩 ===== */
+        .modal-mask {
+            background: rgba(0, 0, 0, 0.3);
+            backdrop-filter: blur(4px);
+        }
+
+        /* ===== 侧边栏二级菜单 ===== */
+        .submenu {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.3s ease;
+        }
+        .submenu.open {
+            max-height: 220px;
+        }
+        .arrow-rotate {
+            transition: transform 0.3s ease;
+        }
+        .arrow-rotate.open {
+            transform: rotate(180deg);
+        }
+
+        /* ===== 页面切换 ===== */
+        .page {
+            display: none;
+            animation: fadeIn 0.2s ease;
+        }
+        .page.active {
+            display: block;
+        }
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(4px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        /* ===== 开关 ===== */
+        .switch {
+            position: relative;
+            width: 40px;
+            height: 20px;
+            background: #ccc;
+            border-radius: 20px;
+            cursor: pointer;
+            transition: 0.3s;
+            flex-shrink: 0;
+        }
+        .switch.active {
+            background: var(--win-primary);
+        }
+        .switch::after {
+            content: '';
+            position: absolute;
+            top: 2px;
+            left: 2px;
+            width: 16px;
+            height: 16px;
+            background: white;
+            border-radius: 50%;
+            transition: 0.3s;
+        }
+        .switch.active::after {
+            left: 22px;
+        }
+
+        /* ===== 卡片悬停 ===== */
+        .card-hover {
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+        .card-hover:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.1);
+        }
+        .dark .card-hover:hover {
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
+        }
+
+        /* ===== 窗口状态 ===== */
+        #appWindow {
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
+        }
+        #appWindow.maximized {
+            width: 100vw !important;
+            height: 100vh !important;
+            max-width: 100vw !important;
+            border-radius: 0 !important;
+            top: 0 !important;
+            left: 0 !important;
+        }
+        #appWindow.minimized {
+            transform: scale(0.1) translate(-450%, 450%);
+            opacity: 0.5;
+            cursor: pointer;
+        }
+
+        /* ===== 移动端侧边栏 ===== */
+        @media (max-width: 768px) {
+            #sidebar {
+                position: absolute;
+                left: -100%;
+                top: 0;
+                height: 100%;
+                z-index: 40;
+                transition: left 0.3s ease;
+                width: 72% !important;
+            }
+            #sidebar.mobile-open {
+                left: 0;
+            }
+            #mobileMenuBtn {
+                display: flex !important;
+            }
+        }
+
+        /* ===== 深色模式适配 ===== */
+        .dark .text-gray-800 {
+            color: #f3f3f3;
+        }
+        .dark .text-gray-700 {
+            color: #e0e0e0;
+        }
+        .dark .text-gray-600 {
+            color: #c0c0c0;
+        }
+        .dark .text-gray-500 {
+            color: #9e9e9e;
+        }
+        .dark .bg-white\/60 {
+            background: rgba(40, 40, 40, 0.6);
+            border-color: rgba(255, 255, 255, 0.1) !important;
+        }
+        .dark .border-gray-200 {
+            border-color: rgba(255, 255, 255, 0.1);
+        }
+        .dark .border-gray-100 {
+            border-color: rgba(255, 255, 255, 0.08);
+        }
+        .dark .hover\:bg-gray-100:hover {
+            background: rgba(255, 255, 255, 0.08);
+        }
+        .dark input {
+            background: rgba(30, 30, 30, 0.8);
+            border-color: rgba(255, 255, 255, 0.15);
+            color: #f3f3f3;
+        }
+        .dark #loginModal>div {
+            background: #202020;
+        }
+        .dark .bg-white\/20 {
+            background: rgba(255, 255, 255, 0.1);
+        }
+        .dark .bg-gray-100 {
+            background: rgba(255, 255, 255, 0.08);
+        }
+        .dark #userDropdown {
+            background: #2a2a2a;
+            color: #e0e0e0;
+            border-color: rgba(255, 255, 255, 0.1);
+        }
+        .dark #userDropdown .border-gray-100 {
+            border-color: rgba(255, 255, 255, 0.08);
+        }
+        .dark #userDropdown .text-gray-500 {
+            color: #aaa;
+        }
+        .dark #userDropdown .hover\:bg-gray-100:hover {
+            background: rgba(255, 255, 255, 0.08);
+        }
+    </style>
+</head>
+
+<body class="font-win min-h-screen bg-gradient-to-br from-sky-200 via-blue-300 to-purple-300 flex items-center justify-center p-4 overflow-hidden select-none">
+
+    <!-- ===== 窗口容器 ===== -->
+    <div id="appWindow" class="w-full max-w-6xl h-[85vh] rounded-xl overflow-hidden shadow-2xl flex flex-col border border-white/20">
+
+        <!-- ===== 标题栏 ===== -->
+        <div id="titleBar" class="h-10 bg-winPrimary text-white flex items-center justify-between px-4 cursor-grab flex-shrink-0">
+            <div class="flex items-center gap-2">
+                <button id="mobileMenuBtn" class="hidden w-6 h-6 items-center justify-center hover:bg-white/20 rounded mr-1">
+                    <i class="fa fa-bars text-sm"></i>
+                </button>
+                <i class="fa fa-windows text-sm"></i>
+                <span id="userTitle" class="text-sm font-medium">Hi 访客</span>
+            </div>
+            <div class="flex items-center gap-3">
+                <div class="relative">
+                    <button id="userBtn" class="text-sm flex items-center gap-1.5 hover:bg-white/20 px-2 py-1 rounded transition-colors">
+                        <i class="fa fa-user-circle"></i>
+                        <span id="userBtnText">登录</span>
+                        <i id="userArrow" class="fa fa-caret-down text-xs hidden"></i>
+                    </button>
+                    <div id="userDropdown" class="hidden absolute right-0 top-8 w-36 bg-white text-gray-700 rounded-lg shadow-lg border border-gray-100 overflow-hidden z-50">
+                        <div class="px-3 py-2 border-b border-gray-100 text-xs text-gray-500">
+                            已登录为 <span id="dropdownUsername" class="text-winPrimary font-medium">-</span>
+                        </div>
+                        <button id="logoutBtn" class="w-full text-left px-3 py-2 text-sm hover:bg-gray-100 transition-colors flex items-center gap-2">
+                            <i class="fa fa-sign-out text-gray-400"></i> 退出登录
+                        </button>
+                    </div>
+                </div>
+                <div class="flex items-center gap-1">
+                    <button id="minBtn" class="w-7 h-7 rounded-sm hover:bg-white/20 flex items-center justify-center transition-colors">
+                        <i class="fa fa-window-minimize text-xs"></i>
+                    </button>
+                    <button id="maxBtn" class="w-7 h-7 rounded-sm hover:bg-white/20 flex items-center justify-center transition-colors">
+                        <i class="fa fa-square-o text-[10px]"></i>
+                    </button>
+                    <button id="closeBtn" class="w-7 h-7 rounded-sm hover:bg-red-600 flex items-center justify-center transition-colors">
+                        <i class="fa fa-times text-sm"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- ===== 主体 ===== -->
+        <div class="flex flex-1 overflow-hidden relative">
+
+            <!-- ===== 侧边栏 ===== -->
+            <aside id="sidebar" class="w-56 mica border-r border-gray-200/50 flex flex-col p-3 flex-shrink-0">
+                <div class="text-lg font-bold text-gray-800 pb-3 mb-3 border-b border-gray-200">
+                    Win11 导航
+                </div>
+                <nav class="flex flex-col gap-1 flex-1">
+                    <div class="nav-item active flex items-center gap-3 px-3 py-2 rounded-lg bg-winPrimary/10 text-winPrimary cursor-pointer transition-all" data-page="home">
+                        <i class="fa fa-home w-4 text-center"></i>
+                        <span class="text-sm">首页</span>
+                    </div>
+                    <div class="nav-item flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-gray-100 cursor-pointer transition-all text-gray-700" data-page="team">
+                        <i class="fa fa-users w-4 text-center"></i>
+                        <span class="text-sm">团队成员</span>
+                    </div>
+                    <div class="nav-item flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-gray-100 cursor-pointer transition-all text-gray-700" data-page="project">
+                        <i class="fa fa-folder-open w-4 text-center"></i>
+                        <span class="text-sm">我们的作品</span>
+                    </div>
+                    <div class="nav-item flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-gray-100 cursor-pointer transition-all text-gray-700" data-page="news">
+                        <i class="fa fa-newspaper-o w-4 text-center"></i>
+                        <span class="text-sm">团队动态</span>
+                    </div>
+                    <div class="nav-item flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-gray-100 cursor-pointer transition-all text-gray-700" data-page="contact">
+                        <i class="fa fa-envelope w-4 text-center"></i>
+                        <span class="text-sm">联系我们</span>
+                    </div>
+                </nav>
+
+                <!-- 设置折叠 -->
+                <div class="pt-3 border-t border-gray-200">
+                    <div id="settingMenu" class="flex items-center justify-between px-3 py-2 rounded-lg hover:bg-gray-100 cursor-pointer transition-all text-gray-700">
+                        <div class="flex items-center gap-3">
+                            <i class="fa fa-cog w-4 text-center"></i>
+                            <span class="text-sm">设置</span>
+                        </div>
+                        <i id="settingArrow" class="fa fa-chevron-down text-xs text-gray-400 arrow-rotate"></i>
+                    </div>
+                    <div id="settingSubmenu" class="submenu pl-7">
+                        <div class="nav-item flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-gray-100 cursor-pointer transition-all text-gray-600 text-sm mt-1" data-page="appearance">
+                            <i class="fa fa-paint-brush w-4 text-center text-xs"></i>
+                            <span>外观设置</span>
+                        </div>
+                        <div class="nav-item flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-gray-100 cursor-pointer transition-all text-gray-600 text-sm" data-page="account">
+                            <i class="fa fa-user-circle-o w-4 text-center text-xs"></i>
+                            <span>账号设置</span>
+                        </div>
+                        <div class="nav-item flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-gray-100 cursor-pointer transition-all text-gray-600 text-sm" data-page="notice">
+                            <i class="fa fa-bell-o w-4 text-center text-xs"></i>
+                            <span>通知设置</span>
+                        </div>
+                        <div class="nav-item flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-gray-100 cursor-pointer transition-all text-gray-600 text-sm mb-1" data-page="about">
+                            <i class="fa fa-info-circle w-4 text-center text-xs"></i>
+                            <span>关于我们</span>
+                        </div>
+                    </div>
+                </div>
+            </aside>
+
+            <!-- 移动端遮罩 -->
+            <div id="sidebarMask" class="hidden absolute inset-0 bg-black/30 z-30 md:hidden"></div>
+
+            <!-- ===== 主内容 ===== -->
+            <main class="flex-1 mica-dark p-8 overflow-y-auto">
+                <div class="max-w-4xl mx-auto">
+
+                    <!-- 首页 -->
+                    <div id="page-home" class="page active">
+                        <h1 class="text-3xl font-bold text-gray-800 mb-2">
+                            欢迎来到我们的团队主页
+                            <span id="welcomeName" class="text-winPrimary"></span>
+                        </h1>
+                        <p class="text-gray-500 mb-8">基于 Windows 11 设计风格打造的团队专属网页</p>
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-10">
+                            <div class="bg-white/60 rounded-xl p-5 shadow-sm border border-white/40 card-hover">
+                                <div class="w-10 h-10 rounded-lg bg-winPrimary/10 text-winPrimary flex items-center justify-center mb-3">
+                                    <i class="fa fa-lightbulb-o"></i>
+                                </div>
+                                <h3 class="font-semibold text-gray-800 mb-1">创意设计</h3>
+                                <p class="text-sm text-gray-500">专注于现代UI设计与用户体验优化</p>
+                            </div>
+                            <div class="bg-white/60 rounded-xl p-5 shadow-sm border border-white/40 card-hover">
+                                <div class="w-10 h-10 rounded-lg bg-winPrimary/10 text-winPrimary flex items-center justify-center mb-3">
+                                    <i class="fa fa-code"></i>
+                                </div>
+                                <h3 class="font-semibold text-gray-800 mb-1">前端开发</h3>
+                                <p class="text-sm text-gray-500">全栈技术栈，打造流畅的网页体验</p>
+                            </div>
+                            <div class="bg-white/60 rounded-xl p-5 shadow-sm border border-white/40 card-hover">
+                                <div class="w-10 h-10 rounded-lg bg-winPrimary/10 text-winPrimary flex items-center justify-center mb-3">
+                                    <i class="fa fa-rocket"></i>
+                                </div>
+                                <h3 class="font-semibold text-gray-800 mb-1">产品落地</h3>
+                                <p class="text-sm text-gray-500">从创意构思到项目上线全流程支持</p>
+                            </div>
+                        </div>
+                        <div class="bg-white/60 rounded-xl p-6 shadow-sm border border-white/40 card-hover">
+                            <h2 class="text-xl font-bold text-gray-800 mb-4">团队介绍</h2>
+                            <p class="text-gray-600 leading-relaxed mb-4">
+                                我们是一支充满活力的创意团队，专注于网页设计、软件开发与数字产品创作。
+                                我们将系统级的设计美学融入每一个作品中，打造简洁、高效、富有质感的产品体验。
+                            </p>
+                            <p class="text-gray-600 leading-relaxed">
+                                你可以在左侧导航栏切换不同页面，查看团队成员、项目作品与最新动态。
+                                所有模块都可以自由编辑替换，快速搭建属于你们的专属主页。
+                            </p>
+                        </div>
+                    </div>
+
+                    <!-- 团队成员 -->
+                    <div id="page-team" class="page">
+                        <h1 class="text-3xl font-bold text-gray-800 mb-8">团队成员</h1>
+                        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                            <div class="bg-white/60 rounded-xl p-5 shadow-sm border border-white/40 text-center card-hover">
+                                <div class="w-16 h-16 rounded-full bg-winPrimary/10 text-winPrimary flex items-center justify-center mx-auto mb-3 text-2xl">
+                                    <i class="fa fa-user"></i>
+                                </div>
+                                <h3 class="font-semibold text-gray-800">我是一只野生 win8</h3>
+                                <p class="text-sm text-gray-500 mt-1">产品负责人</p>
+                            </div>
+                            <div class="bg-white/60 rounded-xl p-5 shadow-sm border border-white/40 text-center card-hover">
+                                <div class="w-16 h-16 rounded-full bg-winPrimary/10 text-winPrimary flex items-center justify-center mx-auto mb-3 text-2xl">
+                                    <i class="fa fa-user"></i>
+                                </div>
+                                <h3 class="font-semibold text-gray-800">我是 bit 君</h3>
+                                <p class="text-sm text-gray-500 mt-1">前端开发</p>
+                            </div>
+                            <div class="bg-white/60 rounded-xl p-5 shadow-sm border border-white/40 text-center card-hover">
+                                <div class="w-16 h-16 rounded-full bg-winPrimary/10 text-winPrimary flex items-center justify-center mx-auto mb-3 text-2xl">
+                                    <i class="fa fa-user"></i>
+                                </div>
+                                <h3 class="font-semibold text-gray-800">我是一只野生 win8</h3>
+                                <p class="text-sm text-gray-500 mt-1">UI设计师</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 我们的作品 -->
+                    <div id="page-project" class="page">
+                        <h1 class="text-3xl font-bold text-gray-800 mb-8">🎮 我们的作品</h1>
+                        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+
+                            <!-- 打地鼠 -->
+                            <div class="bg-white/60 rounded-xl p-5 shadow-sm border border-white/40 card-hover">
+                                <div class="text-4xl mb-2">🐹</div>
+                                <h3 class="font-semibold text-gray-800">打地鼠</h3>
+                                <p class="text-sm text-gray-500 mt-1">30秒内尽可能多打地鼠，考验手速的小游戏。</p>
+                                <a href="打地鼠.html" target="_blank" class="inline-block mt-3 text-winPrimary text-sm font-medium hover:underline">立即试玩 →</a>
+                            </div>
+
+                            <!-- 贪吃蛇 -->
+                            <div class="bg-white/60 rounded-xl p-5 shadow-sm border border-white/40 card-hover">
+                                <div class="text-4xl mb-2">🐍</div>
+                                <h3 class="font-semibold text-gray-800">贪吃蛇</h3>
+                                <p class="text-sm text-gray-500 mt-1">经典贪吃蛇，键盘方向键控制，吃到食物得分。</p>
+                                <a href="贪吃蛇.html" target="_blank" class="inline-block mt-3 text-winPrimary text-sm font-medium hover:underline">立即试玩 →</a>
+                            </div>
+
+                            <!-- 超级糖豆人 -->
+                            <div class="bg-white/60 rounded-xl p-5 shadow-sm border border-white/40 card-hover">
+                                <div class="text-4xl mb-2">🟠</div>
+                                <h3 class="font-semibold text-gray-800">超级糖豆人</h3>
+                                <p class="text-sm text-gray-500 mt-1">横版跳跃闯关，收集金币、躲避敌人、抵达终点。</p>
+                                <a href="超级糖豆人.html" target="_blank" class="inline-block mt-3 text-winPrimary text-sm font-medium hover:underline">立即试玩 →</a>
+                            </div>
+
+                            <!-- 画板 -->
+                            <div class="bg-white/60 rounded-xl p-5 shadow-sm border border-white/40 card-hover">
+                                <div class="text-4xl mb-2">🎨</div>
+                                <h3 class="font-semibold text-gray-800">画板</h3>
+                                <p class="text-sm text-gray-500 mt-1">支持图层、智能形状、颜色选取的绘画工具。</p>
+                                <a href="画板.html" target="_blank" class="inline-block mt-3 text-winPrimary text-sm font-medium hover:underline">立即试玩 →</a>
+                            </div>
+
+                            <!-- 烟花 -->
+                            <div class="bg-white/60 rounded-xl p-5 shadow-sm border border-white/40 card-hover">
+                                <div class="text-4xl mb-2">🎆</div>
+                                <h3 class="font-semibold text-gray-800">新年星空烟花</h3>
+                                <p class="text-sm text-gray-500 mt-1">自动放烟花 + 祝福语飘落，氛围感拉满。</p>
+                                <a href="烟花.html" target="_blank" class="inline-block mt-3 text-winPrimary text-sm font-medium hover:underline">立即试玩 →</a>
+                            </div>
+
+                            <!-- 除夕倒计时 -->
+                            <div class="bg-white/60 rounded-xl p-5 shadow-sm border border-white/40 card-hover">
+                                <div class="text-4xl mb-2">🧨</div>
+                                <h3 class="font-semibold text-gray-800">除夕倒计时</h3>
+                                <p class="text-sm text-gray-500 mt-1">距离下一次除夕还有多久？自动计算并显示。</p>
+                                <a href="除夕倒计时.html" target="_blank" class="inline-block mt-3 text-winPrimary text-sm font-medium hover:underline">立即试玩 →</a>
+                            </div>
+
+                            <!-- 打丧尸 -->
+                            <div class="bg-white/60 rounded-xl p-5 shadow-sm border border-white/40 card-hover">
+                                <div class="text-4xl mb-2">🧟</div>
+                                <h3 class="font-semibold text-gray-800">打丧尸游戏</h3>
+                                <p class="text-sm text-gray-500 mt-1">俯视角生存射击，有换弹、升级、波次系统。</p>
+                                <a href="十分简陋且枯燥的打丧尸游戏.html" target="_blank" class="inline-block mt-3 text-winPrimary text-sm font-medium hover:underline">立即试玩 →</a>
+                            </div>
+
+                            <!-- 打斗游戏 -->
+                            <div class="bg-white/60 rounded-xl p-5 shadow-sm border border-white/40 card-hover">
+                                <div class="text-4xl mb-2">⚔️</div>
+                                <h3 class="font-semibold text-gray-800">像素打斗游戏</h3>
+                                <p class="text-sm text-gray-500 mt-1">横版动作射击，多种武器切换、地图切换。</p>
+                                <a href="十分简陋的打斗游戏.html" target="_blank" class="inline-block mt-3 text-winPrimary text-sm font-medium hover:underline">立即试玩 →</a>
+                            </div>
+
+                            <!-- 电脑桌面（初代） -->
+                            <div class="bg-white/60 rounded-xl p-5 shadow-sm border border-white/40 card-hover">
+                                <div class="text-4xl mb-2">🖥️</div>
+                                <h3 class="font-semibold text-gray-800">电脑桌面（初代）</h3>
+                                <p class="text-sm text-gray-500 mt-1">Mini Desktop OS，仿Windows桌面模拟器。</p>
+                                <a href="电脑桌面.html" target="_blank" class="inline-block mt-3 text-winPrimary text-sm font-medium hover:underline">立即试玩 →</a>
+                            </div>
+
+                            <!-- 电脑桌面 Win8.1 -->
+                            <div class="bg-white/60 rounded-xl p-5 shadow-sm border border-white/40 card-hover">
+                                <div class="text-4xl mb-2">🪟</div>
+                                <h3 class="font-semibold text-gray-800">Win8.1 桌面模拟器</h3>
+                                <p class="text-sm text-gray-500 mt-1">仿Windows 8.1桌面，带任务栏、开始菜单、窗口管理。</p>
+                                <a href="电脑桌面仿 Windows 8.1 版.html" target="_blank" class="inline-block mt-3 text-winPrimary text-sm font-medium hover:underline">立即试玩 →</a>
+                            </div>
+
+                        </div>
+                    </div>
+
+                    <!-- 团队动态 -->
+                    <div id="page-news" class="page">
+                        <h1 class="text-3xl font-bold text-gray-800 mb-8">团队动态</h1>
+                        <div class="space-y-4">
+                            <div class="bg-white/60 rounded-xl p-5 shadow-sm border border-white/40 card-hover">
+                                <span class="text-xs text-winPrimary bg-winPrimary/10 px-2 py-0.5 rounded">最新</span>
+                                <h3 class="font-semibold text-gray-800 mt-2 mb-1">官网正式上线</h3>
+                                <p class="text-sm text-gray-500">2026-07-04 · 我们的团队官网正式完成开发并上线啦！</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 联系我们 -->
+                    <div id="page-contact" class="page">
+                        <h1 class="text-3xl font-bold text-gray-800 mb-8">联系我们</h1>
+                        <div class="bg-white/60 rounded-xl p-6 shadow-sm border border-white/40 space-y-4 card-hover">
+                            <div class="flex items-center gap-3">
+                                <i class="fa fa-envelope text-winPrimary w-5"></i>
+                                <span class="text-gray-700">联系邮箱：3189836526@qq.com</span>
+                            </div>
+                            <div class="flex items-center gap-3">
+                                <i class="fa fa-map-marker text-winPrimary w-5"></i>
+                                <span class="text-gray-700">团队地址：山东省济南市</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 外观设置 -->
+                    <div id="page-appearance" class="page">
+                        <h1 class="text-3xl font-bold text-gray-800 mb-8">外观设置</h1>
+                        <div class="bg-white/60 rounded-xl p-6 shadow-sm border border-white/40 space-y-6 card-hover">
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <h3 class="font-medium text-gray-800">深色模式</h3>
+                                    <p class="text-sm text-gray-500">切换整体页面的明暗主题</p>
+                                </div>
+                                <div class="switch" id="darkModeSwitch"></div>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <h3 class="font-medium text-gray-800">主题色</h3>
+                                    <p class="text-sm text-gray-500">更改系统强调色</p>
+                                </div>
+                                <div class="flex gap-2" id="themeColorGroup">
+                                    <button data-color="#D90429" class="theme-color w-6 h-6 rounded-full bg-[#D90429] border-2 border-white shadow ring-2 ring-[#D90429]/50"></button>
+                                    <button data-color="#0078D4" class="theme-color w-6 h-6 rounded-full bg-[#0078D4] border-2 border-transparent shadow"></button>
+                                    <button data-color="#107C10" class="theme-color w-6 h-6 rounded-full bg-[#107C10] border-2 border-transparent shadow"></button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 账号设置 -->
+                    <div id="page-account" class="page">
+                        <h1 class="text-3xl font-bold text-gray-800 mb-8">账号设置</h1>
+                        <div class="bg-white/60 rounded-xl p-6 shadow-sm border border-white/40 space-y-4 card-hover">
+                            <div>
+                                <label class="block text-sm text-gray-600 mb-1.5">用户名</label>
+                                <input type="text" id="accountNameInput" placeholder="修改用户名" class="w-full max-w-sm px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:border-winPrimary focus:ring-2 focus:ring-winPrimary/20 transition-all" />
+                            </div>
+                            <button id="saveAccountBtn" class="px-4 py-2 bg-winPrimary text-white rounded-lg hover:opacity-90 transition-opacity text-sm">
+                                保存修改
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- 通知设置 -->
+                    <div id="page-notice" class="page">
+                        <h1 class="text-3xl font-bold text-gray-800 mb-8">通知设置</h1>
+                        <div class="bg-white/60 rounded-xl p-6 shadow-sm border border-white/40 space-y-6 card-hover">
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <h3 class="font-medium text-gray-800">团队动态通知</h3>
+                                    <p class="text-sm text-gray-500">有新动态时推送提醒</p>
+                                </div>
+                                <div class="switch active"></div>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <h3 class="font-medium text-gray-800">消息通知</h3>
+                                    <p class="text-sm text-gray-500">收到私信时推送提醒</p>
+                                </div>
+                                <div class="switch active"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 关于我们 -->
+                    <div id="page-about" class="page">
+                        <h1 class="text-3xl font-bold text-gray-800 mb-8">关于我们</h1>
+                        <div class="bg-white/60 rounded-xl p-6 shadow-sm border border-white/40 card-hover">
+                            <h3 class="font-semibold text-gray-800 mb-2">团队官网 · 作品集版</h3>
+                            <p class="text-sm text-gray-500 mb-4">基于 Windows 11 设计语言，完整实现窗口交互、深色主题、多端适配、本地存储</p>
+                            <p class="text-gray-600 leading-relaxed">
+                                本项目纯前端实现，无后端依赖，所有配置、登录信息本地持久化存储，支持一键修改主题色与明暗模式，移动端自适应侧边栏菜单。
+                                本版本新增“我们的作品”页面，集中展示 HTPO 工作室所有已完成的网页作品。
+                            </p>
+                        </div>
+                    </div>
+
+                </div>
+            </main>
+        </div>
+    </div>
+
+    <!-- ===== 登录弹窗 ===== -->
+    <div id="loginModal" class="hidden fixed inset-0 modal-mask z-50 flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden">
+            <div class="bg-winPrimary text-white px-6 py-4">
+                <h3 class="text-lg font-semibold">用户登录</h3>
+                <p class="text-xs text-white/80 mt-0.5">登录后解锁专属团队内容</p>
+            </div>
+            <div class="p-6">
+                <div class="mb-4">
+                    <label class="block text-sm text-gray-600 mb-1.5">用户名</label>
+                    <input id="usernameInput" type="text" placeholder="请输入你的名字" class="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:border-winPrimary focus:ring-2 focus:ring-winPrimary/20 transition-all" />
+                </div>
+                <div class="mb-5">
+                    <label class="block text-sm text-gray-600 mb-1.5">密码（演示可随意填）</label>
+                    <input id="passwordInput" type="password" placeholder="输入密码" class="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:border-winPrimary focus:ring-2 focus:ring-winPrimary/20 transition-all" />
+                </div>
+                <div class="flex gap-3">
+                    <button id="cancelLogin" class="flex-1 py-2 rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 transition-colors text-sm">取消</button>
+                    <button id="confirmLogin" class="flex-1 py-2 rounded-lg bg-winPrimary text-white hover:opacity-90 transition-opacity text-sm">确认登录</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ============================================================
+        //  1. 窗口拖拽
+        // ============================================================
+        const appWindow = document.getElementById('appWindow');
+        const titleBar = document.getElementById('titleBar');
+        const minBtn = document.getElementById('minBtn');
+        const maxBtn = document.getElementById('maxBtn');
+        const closeBtn = document.getElementById('closeBtn');
+
+        let isMax = false,
+            isMin = false;
+        let dragStartX = 0,
+            dragStartY = 0,
+            winStartX = 0,
+            winStartY = 0;
+
+        titleBar.addEventListener('mousedown', (e) => {
+            if (e.target.closest('button')) return;
+            dragStartX = e.clientX;
+            dragStartY = e.clientY;
+            const rect = appWindow.getBoundingClientRect();
+            winStartX = rect.left;
+            winStartY = rect.top;
+            document.addEventListener('mousemove', dragMove);
+            document.addEventListener('mouseup', dragEnd);
+        });
+
+        function dragMove(e) {
+            appWindow.style.left = (winStartX + e.clientX - dragStartX) + 'px';
+            appWindow.style.top = (winStartY + e.clientY - dragStartY) + 'px';
+        }
+
+        function dragEnd() {
+            document.removeEventListener('mousemove', dragMove);
+            document.removeEventListener('mouseup', dragEnd);
+        }
+
+        // ============================================================
+        //  2. 窗口控制
+        // ============================================================
+        minBtn.onclick = () => {
+            isMin = !isMin;
+            appWindow.classList.toggle('minimized', isMin);
+        };
+        maxBtn.onclick = () => {
+            isMax = !isMax;
+            appWindow.classList.toggle('maximized', isMax);
+        };
+        closeBtn.onclick = () => {
+            appWindow.style.display = 'none';
+            setTimeout(() => {
+                appWindow.style.display = 'flex';
+                appWindow.classList.remove('minimized', 'maximized');
+                isMin = false;
+                isMax = false;
+            }, 1200);
+        };
+
+        // ============================================================
+        //  3. 移动端侧边栏
+        // ============================================================
+        const mobileMenuBtn = document.getElementById('mobileMenuBtn');
+        const sidebar = document.getElementById('sidebar');
+        const sidebarMask = document.getElementById('sidebarMask');
+
+        mobileMenuBtn.addEventListener('click', () => {
+            sidebar.classList.add('mobile-open');
+            sidebarMask.classList.remove('hidden');
+        });
+        sidebarMask.addEventListener('click', () => {
+            sidebar.classList.remove('mobile-open');
+            sidebarMask.classList.add('hidden');
+        });
+
+        // ============================================================
+        //  4. 页面切换
+        // ============================================================
+        const navItems = document.querySelectorAll('.nav-item');
+        const pages = document.querySelectorAll('.page');
+
+        navItems.forEach(item => {
+            item.addEventListener('click', () => {
+                const target = item.dataset.page;
+                if (!target) return;
+
+                navItems.forEach(i => {
+                    i.classList.remove('bg-winPrimary/10', 'text-winPrimary');
+                    i.classList.add('text-gray-700');
+                });
+                item.classList.add('bg-winPrimary/10', 'text-winPrimary');
+                item.classList.remove('text-gray-700');
+
+                pages.forEach(p => p.classList.remove('active'));
+                const pageEl = document.getElementById('page-' + target);
+                if (pageEl) pageEl.classList.add('active');
+
+                if (window.innerWidth < 768) {
+                    sidebar.classList.remove('mobile-open');
+                    sidebarMask.classList.add('hidden');
+                }
+            });
+        });
+
+        // ============================================================
+        //  5. 设置折叠
+        // ============================================================
+        const settingMenu = document.getElementById('settingMenu');
+        const settingSubmenu = document.getElementById('settingSubmenu');
+        const settingArrow = document.getElementById('settingArrow');
+
+        settingMenu.addEventListener('click', () => {
+            settingSubmenu.classList.toggle('open');
+            settingArrow.classList.toggle('open');
+        });
+
+        // ============================================================
+        //  6. 登录系统（跨版本继承）
+        // ============================================================
+        const userTitle = document.getElementById('userTitle');
+        const userBtn = document.getElementById('userBtn');
+        const userBtnText = document.getElementById('userBtnText');
+        const userArrow = document.getElementById('userArrow');
+        const userDropdown = document.getElementById('userDropdown');
+        const dropdownUsername = document.getElementById('dropdownUsername');
+        const logoutBtn = document.getElementById('logoutBtn');
+        const welcomeName = document.getElementById('welcomeName');
+        const loginModal = document.getElementById('loginModal');
+        const usernameInput = document.getElementById('usernameInput');
+        const passwordInput = document.getElementById('passwordInput');
+        const confirmLogin = document.getElementById('confirmLogin');
+        const cancelLogin = document.getElementById('cancelLogin');
+        const accountNameInput = document.getElementById('accountNameInput');
+        const saveAccountBtn = document.getElementById('saveAccountBtn');
+
+        function setLoginState(username) {
+            userTitle.textContent = 'Hi ' + username;
+            userBtnText.textContent = username;
+            userArrow.classList.remove('hidden');
+            userDropdown.classList.remove('hidden');
+            dropdownUsername.textContent = username;
+            welcomeName.textContent = '，' + username;
+            if (accountNameInput) accountNameInput.value = username;
+            localStorage.setItem('teamUsername', username);
+        }
+
+        function logout() {
+            userTitle.textContent = 'Hi 访客';
+            userBtnText.textContent = '登录';
+            userArrow.classList.add('hidden');
+            userDropdown.classList.add('hidden');
+            welcomeName.textContent = '';
+            if (accountNameInput) accountNameInput.value = '';
+            localStorage.removeItem('teamUsername');
+        }
+
+        function checkLogin() {
+            const saved = localStorage.getItem('teamUsername');
+            if (saved) setLoginState(saved);
+        }
+
+        userBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const saved = localStorage.getItem('teamUsername');
+            if (saved) {
+                userDropdown.classList.toggle('hidden');
+            } else {
+                loginModal.classList.remove('hidden');
+                usernameInput.focus();
+            }
+        });
+
+        document.addEventListener('click', (e) => {
+            if (!userBtn.contains(e.target) && !userDropdown.contains(e.target)) {
+                userDropdown.classList.add('hidden');
+            }
+        });
+
+        confirmLogin.addEventListener('click', () => {
+            const name = usernameInput.value.trim();
+            if (!name) { alert('请输入用户名'); return; }
+            setLoginState(name);
+            loginModal.classList.add('hidden');
+            usernameInput.value = '';
+            passwordInput.value = '';
+        });
+
+        cancelLogin.addEventListener('click', () => {
+            loginModal.classList.add('hidden');
+            usernameInput.value = '';
+            passwordInput.value = '';
+        });
+
+        passwordInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') confirmLogin.click();
+        });
+
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' && !loginModal.classList.contains('hidden')) {
+                loginModal.classList.add('hidden');
+            }
+        });
+
+        loginModal.addEventListener('click', (e) => {
+            if (e.target === loginModal) loginModal.classList.add('hidden');
+        });
+
+        logoutBtn.addEventListener('click', logout);
+
+        if (saveAccountBtn) {
+            saveAccountBtn.addEventListener('click', () => {
+                const newName = accountNameInput.value.trim();
+                if (!newName) { alert('用户名不能为空'); return; }
+                setLoginState(newName);
+                alert('用户名修改成功');
+            });
+        }
+
+        // ============================================================
+        //  7. 开关通用
+        // ============================================================
+        document.querySelectorAll('.switch:not(#darkModeSwitch)').forEach(sw => {
+            sw.addEventListener('click', () => sw.classList.toggle('active'));
+        });
+
+        // ============================================================
+        //  8. 深色模式（持久化）
+        // ============================================================
+        const darkSwitch = document.getElementById('darkModeSwitch');
+
+        function applyDarkMode(isDark) {
+            document.documentElement.classList.toggle('dark', isDark);
+            darkSwitch.classList.toggle('active', isDark);
+            localStorage.setItem('winDarkMode', isDark ? 'true' : 'false');
+        }
+
+        const savedDark = localStorage.getItem('winDarkMode') === 'true';
+        applyDarkMode(savedDark);
+
+        darkSwitch.addEventListener('click', function() {
+            const now = this.classList.contains('active');
+            applyDarkMode(!now);
+        });
+
+        // ============================================================
+        //  9. 主题色切换（持久化）
+        // ============================================================
+        const colorBtns = document.querySelectorAll('.theme-color');
+
+        function setThemeColor(color) {
+            document.documentElement.style.setProperty('--win-primary', color);
+            localStorage.setItem('winThemeColor', color);
+
+            colorBtns.forEach(btn => {
+                btn.classList.remove('border-white', 'ring-2', 'ring-[var(--win-primary)]/50');
+                btn.classList.add('border-transparent');
+            });
+            const active = Array.from(colorBtns).find(b => b.dataset.color === color);
+            if (active) {
+                active.classList.remove('border-transparent');
+                active.classList.add('border-white', 'ring-2', 'ring-[var(--win-primary)]/50');
+            }
+            document.getElementById('titleBar').style.background = color;
+        }
+
+        const savedColor = localStorage.getItem('winThemeColor') || '#D90429';
+        setThemeColor(savedColor);
+
+        colorBtns.forEach(btn => {
+            btn.addEventListener('click', () => setThemeColor(btn.dataset.color));
+        });
+
+        // ============================================================
+        //  10. 启动
+        // ============================================================
+        checkLogin();
+    </script>
+</body>
+</html>
