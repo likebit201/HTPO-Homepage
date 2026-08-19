@@ -1,0 +1,414 @@
+﻿<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>超好用画板</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+            background: #f0f2f5;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .toolbar {
+            background: #ffffff;
+            padding: 10px 8px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-wrap: wrap;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+            z-index: 10;
+        }
+
+        .tool-group {
+            display: flex;
+            gap: 4px;
+            align-items: center;
+            padding: 4px 8px;
+            background: #f5f7fa;
+            border-radius: 8px;
+        }
+
+        .tool-btn {
+            width: 36px;
+            height: 36px;
+            border: none;
+            border-radius: 6px;
+            background: #fff;
+            cursor: pointer;
+            font-size: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+
+        .tool-btn:hover {
+            background: #e8f0fe;
+        }
+
+        .tool-btn.active {
+            background: #1890ff;
+            color: white;
+        }
+
+        .color-picker {
+            width: 32px;
+            height: 32px;
+            border: 2px solid #d9d9d9;
+            border-radius: 50%;
+            cursor: pointer;
+            padding: 0;
+            background: none;
+        }
+
+        .size-control {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .size-control input[type="range"] {
+            width: 80px;
+            accent-color: #1890ff;
+        }
+
+        .size-value {
+            font-size: 12px;
+            color: #666;
+            min-width: 24px;
+        }
+
+        .canvas-container {
+            flex: 1;
+            position: relative;
+            overflow: hidden;
+            background: #fff;
+        }
+
+        #drawCanvas {
+            display: block;
+            touch-action: none;
+            cursor: crosshair;
+        }
+
+        .bottom-bar {
+            background: #fff;
+            padding: 8px;
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            box-shadow: 0 -2px 8px rgba(0,0,0,0.08);
+        }
+
+        .action-btn {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 8px;
+            background: #f0f2f5;
+            color: #333;
+            font-size: 14px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .action-btn.primary {
+            background: #1890ff;
+            color: white;
+        }
+
+        .action-btn.danger {
+            background: #ff4d4f;
+            color: white;
+        }
+
+        .action-btn:hover {
+            opacity: 0.85;
+        }
+
+        .action-btn:active {
+            transform: scale(0.96);
+        }
+
+        @media (max-width: 600px) {
+            .toolbar {
+                padding: 8px 6px;
+                gap: 6px;
+            }
+            
+            .tool-btn {
+                width: 32px;
+                height: 32px;
+                font-size: 14px;
+            }
+            
+            .size-control input[type="range"] {
+                width: 60px;
+            }
+            
+            .action-btn {
+                padding: 8px 12px;
+                font-size: 13px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="toolbar">
+        <div class="tool-group">
+            <button class="tool-btn active" id="penBtn" title="画笔">✏️</button>
+            <button class="tool-btn" id="eraserBtn" title="橡皮擦">🧹</button>
+        </div>
+
+        <div class="tool-group">
+            <input type="color" class="color-picker" id="colorPicker" value="#000000" title="选择颜色">
+        </div>
+
+        <div class="tool-group size-control">
+            <span class="size-value" id="sizeValue">5</span>
+            <input type="range" id="sizeRange" min="1" max="50" value="5">
+        </div>
+    </div>
+
+    <div class="canvas-container">
+        <canvas id="drawCanvas"></canvas>
+    </div>
+
+    <div class="bottom-bar">
+        <button class="action-btn" id="undoBtn">↩️ 撤销</button>
+        <button class="action-btn" id="redoBtn">↪️ 重做</button>
+        <button class="action-btn danger" id="clearBtn">🗑️ 清空</button>
+        <button class="action-btn primary" id="saveBtn">💾 保存</button>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('drawCanvas');
+        const ctx = canvas.getContext('2d');
+        const container = document.querySelector('.canvas-container');
+
+        // 状态
+        let isDrawing = false;
+        let currentTool = 'pen';
+        let lineWidth = 5;
+        let strokeColor = '#000000';
+        let lastX = 0;
+        let lastY = 0;
+
+        // 历史记录
+        let history = [];
+        let historyStep = -1;
+        const maxHistory = 30;
+
+        // 初始化画布尺寸
+        function resizeCanvas() {
+            const rect = container.getBoundingClientRect();
+            const dpr = window.devicePixelRatio || 1;
+            
+            // 保存当前画面
+            const imageData = canvas.toDataURL();
+            
+            canvas.width = rect.width * dpr;
+            canvas.height = rect.height * dpr;
+            canvas.style.width = rect.width + 'px';
+            canvas.style.height = rect.height + 'px';
+            
+            ctx.scale(dpr, dpr);
+            ctx.lineCap = 'round';
+            ctx.lineJoin = 'round';
+            
+            // 恢复画面
+            if (historyStep >= 0) {
+                const img = new Image();
+                img.onload = () => ctx.drawImage(img, 0, 0, rect.width, rect.height);
+                img.src = history[historyStep];
+            } else {
+                ctx.fillStyle = '#ffffff';
+                ctx.fillRect(0, 0, rect.width, rect.height);
+                saveHistory();
+            }
+        }
+
+        // 保存历史
+        function saveHistory() {
+            historyStep++;
+            if (historyStep < history.length) {
+                history.length = historyStep;
+            }
+            history.push(canvas.toDataURL());
+            if (history.length > maxHistory) {
+                history.shift();
+                historyStep--;
+            }
+            updateButtons();
+        }
+
+        // 撤销
+        function undo() {
+            if (historyStep > 0) {
+                historyStep--;
+                restoreFromHistory();
+            }
+        }
+
+        // 重做
+        function redo() {
+            if (historyStep < history.length - 1) {
+                historyStep++;
+                restoreFromHistory();
+            }
+        }
+
+        function restoreFromHistory() {
+            const img = new Image();
+            img.onload = () => {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                ctx.drawImage(img, 0, 0, 
+                    canvas.width / (window.devicePixelRatio || 1), 
+                    canvas.height / (window.devicePixelRatio || 1));
+            };
+            img.src = history[historyStep];
+            updateButtons();
+        }
+
+        function updateButtons() {
+            document.getElementById('undoBtn').disabled = historyStep <= 0;
+            document.getElementById('redoBtn').disabled = historyStep >= history.length - 1;
+        }
+
+        // 获取坐标
+        function getPos(e) {
+            const rect = canvas.getBoundingClientRect();
+            const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+            const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+            return {
+                x: clientX - rect.left,
+                y: clientY - rect.top
+            };
+        }
+
+        // 开始绘制
+        function startDraw(e) {
+            e.preventDefault();
+            isDrawing = true;
+            const pos = getPos(e);
+            lastX = pos.x;
+            lastY = pos.y;
+            
+            ctx.beginPath();
+            ctx.moveTo(lastX, lastY);
+        }
+
+        // 绘制中
+        function draw(e) {
+            if (!isDrawing) return;
+            e.preventDefault();
+            
+            const pos = getPos(e);
+            
+            ctx.lineWidth = lineWidth;
+            ctx.strokeStyle = currentTool === 'eraser' ? '#ffffff' : strokeColor;
+            ctx.globalCompositeOperation = currentTool === 'eraser' ? 'destination-out' : 'source-over';
+            
+            ctx.lineTo(pos.x, pos.y);
+            ctx.stroke();
+            
+            lastX = pos.x;
+            lastY = pos.y;
+        }
+
+        // 结束绘制
+        function endDraw(e) {
+            if (!isDrawing) return;
+            isDrawing = false;
+            ctx.closePath();
+            saveHistory();
+        }
+
+        // 事件监听
+        canvas.addEventListener('mousedown', startDraw);
+        canvas.addEventListener('mousemove', draw);
+        canvas.addEventListener('mouseup', endDraw);
+        canvas.addEventListener('mouseleave', endDraw);
+
+        canvas.addEventListener('touchstart', startDraw, { passive: false });
+        canvas.addEventListener('touchmove', draw, { passive: false });
+        canvas.addEventListener('touchend', endDraw);
+        canvas.addEventListener('touchcancel', endDraw);
+
+        // 工具切换
+        document.getElementById('penBtn').addEventListener('click', () => {
+            currentTool = 'pen';
+            document.getElementById('penBtn').classList.add('active');
+            document.getElementById('eraserBtn').classList.remove('active');
+        });
+
+        document.getElementById('eraserBtn').addEventListener('click', () => {
+            currentTool = 'eraser';
+            document.getElementById('eraserBtn').classList.add('active');
+            document.getElementById('penBtn').classList.remove('active');
+        });
+
+        // 颜色选择
+        document.getElementById('colorPicker').addEventListener('input', (e) => {
+            strokeColor = e.target.value;
+        });
+
+        // 粗细调节
+        document.getElementById('sizeRange').addEventListener('input', (e) => {
+            lineWidth = parseInt(e.target.value);
+            document.getElementById('sizeValue').textContent = lineWidth;
+        });
+
+        // 按钮功能
+        document.getElementById('undoBtn').addEventListener('click', undo);
+        document.getElementById('redoBtn').addEventListener('click', redo);
+
+        document.getElementById('clearBtn').addEventListener('click', () => {
+            if (confirm('确定要清空画布吗？')) {
+                ctx.globalCompositeOperation = 'source-over';
+                ctx.fillStyle = '#ffffff';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                saveHistory();
+            }
+        });
+
+        document.getElementById('saveBtn').addEventListener('click', () => {
+            const link = document.createElement('a');
+            link.download = '我的画作_' + Date.now() + '.png';
+            link.href = canvas.toDataURL('image/png');
+            link.click();
+        });
+
+        // 键盘快捷键
+        document.addEventListener('keydown', (e) => {
+            if (e.ctrlKey || e.metaKey) {
+                if (e.key === 'z') {
+                    e.preventDefault();
+                    undo();
+                } else if (e.key === 'y') {
+                    e.preventDefault();
+                    redo();
+                }
+            }
+        });
+
+        // 初始化
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas();
+    </script>
+</body>
+</html>
+
